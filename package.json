@@ -1,0 +1,58 @@
+{
+  "name": "import-atlas",
+  "version": "0.1.0",
+  "description": "Scan a JS/TS project's local import graph from one or more entry files and render it as an interactive, pannable dependency tree.",
+  "keywords": [
+    "cli",
+    "dependency-graph",
+    "import-graph",
+    "dependency-tree",
+    "static-analysis",
+    "typescript",
+    "ast",
+    "visualization"
+  ],
+  "homepage": "https://github.com/Vladimir-Romanets/import-atlas#readme",
+  "bugs": {
+    "url": "https://github.com/Vladimir-Romanets/import-atlas/issues"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Vladimir-Romanets/import-atlas.git"
+  },
+  "license": "MIT",
+  "author": "Volodymyr Romanets <rva.wsd@gmail.com>",
+  "sideEffects": false,
+  "bin": {
+    "import-atlas": "./dist/cli.js"
+  },
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "require": "./dist/index.js",
+      "default": "./dist/index.js"
+    },
+    "./package.json": "./package.json"
+  },
+  "files": [
+    "dist",
+    "README.md"
+  ],
+  "engines": {
+    "node": ">=18"
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "dev": "tsc -p tsconfig.json --watch",
+    "typecheck": "tsc -p tsconfig.json --noEmit"
+  },
+  "dependencies": {
+    "commander": "^12.1.0",
+    "typescript": "^5.6.3"
+  },
+  "devDependencies": {
+    "@types/node": "^20.14.9"
+  }
+}
