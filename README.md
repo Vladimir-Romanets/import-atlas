@@ -157,18 +157,8 @@ Both are independently useful if you want your own report format.
 
 ## Development
 
-To work on the tool itself:
-
-```bash
-pnpm install
-pnpm build      # or `pnpm dev` for an incremental tsc --watch build
-
-# run the CLI straight from source
-node dist/cli.js graph path/to/entry.tsx --root path/to/project --open
-```
-
-`pnpm link --global` exposes the local build as the `import-atlas` command,
-useful for testing it against other projects before publishing.
+See [CONTRIBUTING.md](CONTRIBUTING.md) for how to build the tool from
+source and how the graph viewer's client code is organized.
 
 ## Known limitations (v0.1)
 

@@ -43,3 +43,16 @@ export interface TreeNode {
   fanIn: number;
   children: TreeNode[];
 }
+
+/** The JSON payload embedded into the generated HTML report for the graph viewer's client script. */
+export interface RenderData {
+  title: string;
+  root: string;
+  entries: string[];
+  layers: string[];
+  layerCounts: Record<string, number>;
+  topFanIn: { path: string; count: number }[];
+  warnings: string[];
+  forest: TreeNode[];
+  generatedAt: string;
+}
