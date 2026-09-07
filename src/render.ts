@@ -387,7 +387,7 @@ const SCRIPT = `
       if (node.warn){
         var w = document.createElementNS(SVGNS, 'text');
         w.setAttribute('class', 'warn-glyph');
-        w.setAttribute('x', rightX - (node.children.length && !node.ref ? 14 : 0));
+        w.setAttribute('x', rightX - (node.ref || node.children.length ? 14 : 0));
         w.setAttribute('y', NODE_H/2 + 4);
         w.setAttribute('text-anchor', 'end');
         w.textContent = '⚠';
