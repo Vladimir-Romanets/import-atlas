@@ -39,20 +39,30 @@ Or install it once and drop the `npx` prefix:
 ```bash
 pnpm add -D import-atlas
 
-import-atlas graph path/to/entry.tsx \
+pnpm exec import-atlas graph path/to/entry.tsx \
   --root path/to/project \
   --title "my project" \
   --open
 ```
 
+or, add script at package.json
+
+```
+...
+  "script": {
+    ...
+    "graph": "import-atlas graph path/to/entry.tsx --root . --title "my project" --open"
+  }
+```
+
 ### Options (both commands)
 
-| Flag                       | Default       | Description                                                                                      |
-| -------------------------- | ------------- | ------------------------------------------------------------------------------------------------ |
-| `-r, --root <dir>`         | cwd           | Project root — where relative paths are computed from and where `tsconfig.json` is searched for. |
-| `-c, --tsconfig <path>`    | auto-detected | Explicit `tsconfig.json` path, if it isn't the nearest one above the root.                       |
+| Flag                       | Default       | Description                                                                                                                         |
+| -------------------------- | ------------- | ----------------------------------------------------------------------------------------------------------------------------------- |
+| `-r, --root <dir>`         | cwd           | Project root — where relative paths are computed from and where `tsconfig.json` is searched for.                                    |
+| `-c, --tsconfig <path>`    | auto-detected | Explicit `tsconfig.json` path, if it isn't the nearest one above the root.                                                          |
 | `-e, --exclude <regex...>` | none          | Skip files whose root-relative path matches any of these regexes. Accepts multiple values, e.g. `--exclude "\.test\." "__mocks__"`. |
-| `--max-files <n>`          | 4000          | Safety cap on how many files a single scan will visit.                                           |
+| `--max-files <n>`          | 4000          | Safety cap on how many files a single scan will visit.                                                                              |
 
 ### `graph`-only options
 
@@ -88,7 +98,7 @@ src/app/
     └── settings/page.tsx       # "/settings"
 ```
 
-Every `layout.tsx` *and* `page.tsx` is a separate entry point — a nested
+Every `layout.tsx` _and_ `page.tsx` is a separate entry point — a nested
 layout isn't imported by the pages it wraps any more than the root layout
 is, it's the router that nests them:
 
@@ -109,7 +119,7 @@ import-atlas graph \
 and brackets are shell-special.)
 
 This draws 8 separate trees, one per entry, each showing what that file
-*actually* imports (a `Button` from `shared/ui`, a `getSession()` helper, …).
+_actually_ imports (a `Button` from `shared/ui`, a `getSession()` helper, …).
 Nothing connects `(dashboard)/layout.tsx` to `overview/page.tsx` — that
 nesting is the router's doing, not an import, so it's not part of the graph.
 What you do get for free: anything imported from more than one of those 8
