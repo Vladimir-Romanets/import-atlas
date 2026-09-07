@@ -45,11 +45,11 @@ pnpm exec import-atlas graph path/to/entry.tsx \
   --open
 ```
 
-or, add script at package.json
+or, add scripts at package.json
 
 ```
 ...
-  "script": {
+  "scripts": {
     ...
     "graph": "import-atlas graph path/to/entry.tsx --root . --title "my project" --open"
   }
