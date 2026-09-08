@@ -5,6 +5,12 @@ export function shortLabel(s: string): string {
   return s.length > 28 ? s.slice(0,27) + '…' : s;
 }
 
+/** For an "index" node, the name of the folder it lives in (e.g. "utils" for "src/utils/index.ts"). */
+export function folderOf(relPath: string): string {
+  const parts = relPath.split('/');
+  return parts.length > 1 ? parts[parts.length - 2] : '';
+}
+
 export function buildLayout(
   root: RenderNode,
   startY: number,
