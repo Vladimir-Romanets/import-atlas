@@ -82,6 +82,14 @@ export function resolveSpecifier(
         }
       }
     }
+
+    // No `paths` alias matched (or none configured) — TypeScript still resolves
+    // non-relative specifiers directly against an explicit `baseUrl`.
+    if (tsconfig.baseUrlExplicit) {
+      const abs = path.resolve(tsconfig.baseUrl, specifier);
+      const resolved = tryResolveFile(abs);
+      if (resolved) return { resolved, external: false };
+    }
   }
 
   return { resolved: null, external: true };

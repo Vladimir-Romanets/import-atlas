@@ -3,6 +3,7 @@ import * as path from 'path';
 
 export interface ResolvedTsConfig {
   baseUrl: string;
+  baseUrlExplicit: boolean;
   paths: Record<string, string[]>;
   configPath: string;
 }
@@ -26,12 +27,14 @@ export function loadTsConfig(
 
   const configDir = path.dirname(configPath);
   const parsed = ts.parseJsonConfigFileContent(configFile.config, ts.sys, configDir);
+  const baseUrlExplicit = Boolean(parsed.options.baseUrl);
   const baseUrl = parsed.options.baseUrl
     ? path.resolve(configDir, parsed.options.baseUrl)
     : configDir;
 
   return {
     baseUrl,
+    baseUrlExplicit,
     paths: (parsed.options.paths as Record<string, string[]>) || {},
     configPath
   };
