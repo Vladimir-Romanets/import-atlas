@@ -3,4 +3,5 @@ export const ROW_H = 30;
 export const COL_W = 232;
 export const NODE_W = 208;
 export const NODE_H = 27;
+export const LINE_GAP = 8;
 export const DRAG_THRESHOLD = 4;
