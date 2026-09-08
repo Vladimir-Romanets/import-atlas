@@ -1,3 +1,10 @@
+## [0.1.3](https://github.com/Vladimir-Romanets/import-atlas/compare/v0.1.2...v0.1.3) (2026-09-08)
+
+
+### Bug Fixes
+
+* resolve non-relative imports against explicit tsconfig baseUrl ([#7](https://github.com/Vladimir-Romanets/import-atlas/issues/7)) ([77df847](https://github.com/Vladimir-Romanets/import-atlas/commit/77df84750e9f7cfa23c94a9a3f74a037d1081c23))
+
 # Changelog
 
 All notable changes to this project will be documented in this file.
