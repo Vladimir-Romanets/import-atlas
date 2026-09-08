@@ -51,7 +51,7 @@ or, add scripts at package.json
 ...
   "scripts": {
     ...
-    "graph": "import-atlas graph path/to/entry.tsx --root . --title "my project" --open"
+    "graph": "import-atlas graph path/to/entry.tsx --root . --title \"my project\" --open"
   }
 ```
 
@@ -162,7 +162,7 @@ source and how the graph viewer's client code is organized.
 
 ## Known limitations (v0.1)
 
-- JS/TS only — no CSS/JSON/asset imports.
+- JS/TS only — a CSS/SCSS/JSON/asset import (e.g. `./main.scss`) still shows up as a leaf node in the tree since it resolves to a real file on disk, it's just never parsed further for its own imports.
 - `paths` aliases only; package-level `exports` map remapping isn't resolved (external packages are never followed, so this rarely matters).
 - One HTML file per run; no incremental/watch mode yet.
 - Framework-level routing (Next.js layout/page nesting, Nuxt/SvelteKit/Remix route trees, …) is never shown as an edge — it's file-system convention, not an import. See "Using it with file-system routers" for how to still get full coverage.
