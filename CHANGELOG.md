@@ -1,3 +1,10 @@
+# [0.2.0](https://github.com/Vladimir-Romanets/import-atlas/compare/v0.1.3...v0.2.0) (2026-09-08)
+
+
+### Features
+
+* show folder name under index node labels ([#8](https://github.com/Vladimir-Romanets/import-atlas/issues/8)) ([f896e1f](https://github.com/Vladimir-Romanets/import-atlas/commit/f896e1facc300d99571f61cbda26228b6401c18d))
+
 ## [0.1.3](https://github.com/Vladimir-Romanets/import-atlas/compare/v0.1.2...v0.1.3) (2026-09-08)
 
 
