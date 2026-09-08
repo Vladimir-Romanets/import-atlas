@@ -1,0 +1,77 @@
+import { SVGNS, NODE_W, NODE_H } from './constants';
+import type { RenderNode } from './types';
+import type { Viewport } from './viewport';
+
+export interface Navigation {
+  jumpTo: (id: string) => void;
+  onNodeActivate: (node: RenderNode) => void;
+  expandAncestors: (id: string) => void;
+}
+
+export interface NavigationOptions {
+  collapsed: Set<string>;
+  byId: Record<string, RenderNode>;
+  parentOf: Record<string, string>;
+  render: () => void;
+  svg: SVGSVGElement;
+  nodesG: SVGGElement;
+  viewport: Viewport;
+  showDetail: (node: RenderNode) => void;
+}
+
+export function createNavigation({ collapsed, byId, parentOf, render, svg, nodesG, viewport, showDetail }: NavigationOptions): Navigation {
+  const { view, clamp, applyTransform } = viewport;
+
+  const expandAncestors = (id: string) => {
+    let cur = parentOf[id];
+    while (cur){
+      collapsed.delete(cur);
+      cur = parentOf[cur];
+    }
+  };
+
+  const jumpTo = (id: string) => {
+    expandAncestors(id);
+    render();
+    const node = byId[id];
+    if (!node) return;
+    const rect = svg.getBoundingClientRect();
+    const k = clamp(view.k, 0.6, 1.2);
+    view.k = k;
+    view.x = rect.width/2 - (node.x+NODE_W/2)*k;
+    view.y = rect.height/2 - node.y*k;
+    applyTransform();
+    showDetail(node);
+    setTimeout(() => {
+      const el = nodesG.querySelector(`[data-id="${id}"] .box`);
+      if (!el) return;
+      const ring = document.createElementNS(SVGNS,'rect');
+      ring.setAttribute('class','pulse');
+      ring.setAttribute('x','-3');
+      ring.setAttribute('y','-3');
+      ring.setAttribute('width', String(NODE_W+6));
+      ring.setAttribute('height', String(NODE_H+6));
+      ring.setAttribute('rx','8');
+      el.parentNode!.appendChild(ring);
+      setTimeout(() => { ring.remove(); }, 2400);
+    }, 30);
+  };
+
+  const onNodeActivate = (node: RenderNode) => {
+    showDetail(node);
+    if (node.ref){
+      jumpTo(node.ref);
+      return;
+    }
+    if (node.children.length){
+      if (collapsed.has(node.renderId)) {
+        collapsed.delete(node.renderId);
+      } else {
+        collapsed.add(node.renderId);
+      }
+      render();
+    }
+  };
+
+  return { jumpTo, onNodeActivate, expandAncestors };
+}

@@ -1,0 +1,51 @@
+
+<div class="app">
+  <aside class="sidebar">
+    <div>
+      <h1 id="pageTitle"></h1>
+      <p class="subtitle" id="pageSubtitle"></p>
+    </div>
+    <section>
+      <h2>Find a file</h2>
+      <input id="search" type="text" placeholder="filename or path…" autocomplete="off">
+      <div class="search-hint" id="searchHint"></div>
+    </section>
+    <section>
+      <h2>View</h2>
+      <div class="btn-row">
+        <button class="ctl" id="expandAll" type="button">Expand all</button>
+        <button class="ctl" id="collapseDefault" type="button">Collapse</button>
+        <button class="ctl" id="fitView" type="button">Fit view</button>
+      </div>
+    </section>
+    <section class="legend">
+      <h2>Layers</h2>
+      <ul id="legendList"></ul>
+      <div class="ref-row"><span class="ref-swatch"></span> dashed = re-used elsewhere, click to jump</div>
+    </section>
+    <section>
+      <h2>Highest fan-in</h2>
+      <table class="stats" id="statsTable"></table>
+    </section>
+    <section id="warningsSection" hidden>
+      <h2>Warnings</h2>
+      <div class="warnings" id="warningsList"></div>
+    </section>
+    <div id="detail" hidden>
+      <div class="d-label" id="dLabel"></div>
+      <div class="d-path" id="dPath"></div>
+      <div class="d-note" id="dNote"></div>
+      <div class="d-warn" id="dWarn"></div>
+    </div>
+    <p class="hint">Click a node to expand/collapse. Drag to pan, scroll to zoom. Dashed nodes jump to where the file is fully expanded.</p>
+  </aside>
+  <main class="canvas-wrap">
+    <svg id="canvas" aria-label="Import dependency tree">
+      <g id="viewport"><g id="edges"></g><g id="nodes"></g></g>
+    </svg>
+    <div class="zoom-controls">
+      <button type="button" id="zoomIn" aria-label="Zoom in">+</button>
+      <button type="button" id="zoomOut" aria-label="Zoom out">&minus;</button>
+    </div>
+  </main>
+</div>
