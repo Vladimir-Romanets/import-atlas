@@ -99,17 +99,34 @@ export function createTreeRenderer({
     g.appendChild(text);
 
     const rightX = NODE_W - 10;
+    const showBadge =
+      !node.ref &&
+      node.children.length > 0 &&
+      collapsed.has(node.renderId) &&
+      node._count > 0;
+    const badgeWidth = showBadge ? 10 + String(node._count).length * 6.5 : 0;
+    let glyphOffset =
+      (node.ref || node.children.length ? 14 : 0) +
+      (showBadge ? badgeWidth + 4 : 0);
     if (node.warn) {
       const w = document.createElementNS(SVGNS, "text");
       w.setAttribute("class", "warn-glyph");
-      w.setAttribute(
-        "x",
-        String(rightX - (node.ref || node.children.length ? 14 : 0)),
-      );
+      w.setAttribute("x", String(rightX - glyphOffset));
       w.setAttribute("y", String(NODE_H / 2 + 4));
       w.setAttribute("text-anchor", "end");
       w.textContent = "⚠";
       g.appendChild(w);
+      glyphOffset += 14;
+    }
+
+    if (node.hint) {
+      const h = document.createElementNS(SVGNS, "text");
+      h.setAttribute("class", "hint-glyph");
+      h.setAttribute("x", String(rightX - glyphOffset));
+      h.setAttribute("y", String(NODE_H / 2 + 4));
+      h.setAttribute("text-anchor", "end");
+      h.textContent = "💡";
+      g.appendChild(h);
     }
 
     if (node.ref) {
@@ -129,19 +146,18 @@ export function createTreeRenderer({
       chev.textContent = collapsed.has(node.renderId) ? "▸" : "▾";
       g.appendChild(chev);
 
-      if (collapsed.has(node.renderId) && node._count > 0) {
+      if (showBadge) {
         const bg = document.createElementNS(SVGNS, "g");
         bg.setAttribute("class", "count-badge");
-        const bw = 10 + String(node._count).length * 6.5;
         const brect = document.createElementNS(SVGNS, "rect");
-        brect.setAttribute("x", String(rightX - 14 - bw));
+        brect.setAttribute("x", String(rightX - 14 - badgeWidth));
         brect.setAttribute("y", String(NODE_H / 2 - 8));
-        brect.setAttribute("width", String(bw));
+        brect.setAttribute("width", String(badgeWidth));
         brect.setAttribute("height", "16");
         brect.setAttribute("rx", "8");
         bg.appendChild(brect);
         const btext = document.createElementNS(SVGNS, "text");
-        btext.setAttribute("x", String(rightX - 14 - bw / 2));
+        btext.setAttribute("x", String(rightX - 14 - badgeWidth / 2));
         btext.setAttribute("y", String(NODE_H / 2 + 4));
         btext.setAttribute("text-anchor", "middle");
         btext.textContent = String(node._count);
@@ -151,7 +167,7 @@ export function createTreeRenderer({
     }
 
     const title = document.createElementNS(SVGNS, "title");
-    title.textContent = `${fullLabel}${node.note ? `\nimports: ${node.note}` : ""}${node.warn ? `\n⚠ ${node.warn}` : ""}${node.fanIn > 1 ? `\nfan-in: ${node.fanIn}` : ""}`;
+    title.textContent = `${fullLabel}${node.note ? `\nimports: ${node.note}` : ""}${node.warn ? `\n⚠ ${node.warn}` : ""}${node.hint ? `\n💡 ${node.hint}` : ""}${node.fanIn > 1 ? `\nfan-in: ${node.fanIn}` : ""}`;
     g.appendChild(title);
 
     g.addEventListener("click", () => {

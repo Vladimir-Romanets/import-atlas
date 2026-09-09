@@ -38,6 +38,8 @@ export interface TreeNode {
   layer: string;
   note: string;
   warn: string;
+  /** Set when this file imports the same child module via more than one statement (e.g. a value import plus a type-only import, or two re-export lines). */
+  hint: string;
   /** If set, this occurrence is a compact reference — click jumps to the renderId it names. */
   ref: string | null;
   fanIn: number;

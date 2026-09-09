@@ -160,7 +160,7 @@ Both are independently useful if you want your own report format.
 See [CONTRIBUTING.md](CONTRIBUTING.md) for how to build the tool from
 source and how the graph viewer's client code is organized.
 
-## Known limitations (v0.1)
+## Known limitations
 
 - JS/TS only — a CSS/SCSS/JSON/asset import (e.g. `./main.scss`) still shows up as a leaf node in the tree since it resolves to a real file on disk, it's just never parsed further for its own imports.
 - `paths` aliases only; package-level `exports` map remapping isn't resolved (external packages are never followed, so this rarely matters).
