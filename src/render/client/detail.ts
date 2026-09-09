@@ -7,4 +7,5 @@ export function showDetail(node: RenderNode): void {
   byId('dPath').textContent = node.relPath;
   byId('dNote').textContent = node.note && !node.ref ? `imports: ${node.note}` : (node.ref ? 'Re-used elsewhere — click jumps to its definition.' : '');
   byId('dWarn').textContent = node.warn ? `⚠ ${node.warn}` : '';
+  byId('dHint').textContent = node.hint ? `💡 ${node.hint}` : '';
 }
