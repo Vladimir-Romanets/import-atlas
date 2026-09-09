@@ -1,6 +1,6 @@
 {
   "name": "import-atlas",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "description": "Scan a JS/TS project's local import graph from one or more entry files and render it as an interactive, pannable dependency tree.",
   "keywords": [
     "cli",

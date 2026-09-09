@@ -1,3 +1,10 @@
+# [0.3.0](https://github.com/Vladimir-Romanets/import-atlas/compare/v0.2.0...v0.3.0) (2026-09-09)
+
+
+### Features
+
+* collapse duplicate import edges and surface a consolidation hint ([#10](https://github.com/Vladimir-Romanets/import-atlas/issues/10)) ([c98e669](https://github.com/Vladimir-Romanets/import-atlas/commit/c98e669f760e9c52fff4a3edc0bf48d35dfc9cea))
+
 # [0.2.0](https://github.com/Vladimir-Romanets/import-atlas/compare/v0.1.3...v0.2.0) (2026-09-08)
 
 
