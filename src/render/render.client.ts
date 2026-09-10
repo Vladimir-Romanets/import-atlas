@@ -1,14 +1,18 @@
-import type { RenderData } from '../types';
-import type { RenderNode } from './client/types';
-import { byId } from './client/dom';
-import { createColorScale } from './client/colors';
-import { renderSidebar } from './client/sidebar';
-import { buildIndex, countDescendants, createCollapsedState } from './client/tree';
-import { createViewport } from './client/viewport';
-import { showDetail } from './client/detail';
-import { createTreeRenderer } from './client/svgTree';
-import { createNavigation, type Navigation } from './client/navigation';
-import { createSearch } from './client/search';
+import type { RenderData } from "../types";
+import type { RenderNode } from "./client/types";
+import { byId } from "./client/dom";
+import { createColorScale } from "./client/colors";
+import { renderSidebar } from "./client/sidebar";
+import {
+  buildIndex,
+  countDescendants,
+  createCollapsedState,
+} from "./client/tree";
+import { createViewport } from "./client/viewport";
+import { showDetail } from "./client/detail";
+import { createTreeRenderer } from "./client/svgTree";
+import { createNavigation, type Navigation } from "./client/navigation";
+import { createSearch } from "./client/search";
 
 declare global {
   interface Window {
@@ -26,13 +30,14 @@ const colorOf = createColorScale(DATA.layers);
 renderSidebar(DATA, colorOf);
 
 const { byId: nodeById, parentOf } = buildIndex(forest);
-countDescendants(forest);
+let hideUnused = false;
+countDescendants(forest, hideUnused);
 const { collapsed, defaultCollapse } = createCollapsedState(forest);
 
-const svg = byId<SVGSVGElement>('canvas');
-const viewportG = byId<SVGGElement>('viewport');
-const edgesG = byId<SVGGElement>('edges');
-const nodesG = byId<SVGGElement>('nodes');
+const svg = byId<SVGSVGElement>("canvas");
+const viewportG = byId<SVGGElement>("viewport");
+const edgesG = byId<SVGGElement>("edges");
+const nodesG = byId<SVGGElement>("nodes");
 
 const viewport = createViewport(svg, viewportG);
 
@@ -43,43 +48,120 @@ const treeRenderer = createTreeRenderer({
   nodesG,
   colorOf,
   collapsed,
-  onActivate: (node) => nav.onNodeActivate(node)
+  onActivate: (node) => nav.onNodeActivate(node),
+  getHideUnused: () => hideUnused,
+});
+
+const toggleExpandBtn = byId<HTMLButtonElement>("toggleExpand");
+const toggleExpandText = byId("toggleExpandText");
+
+// Derived from the live `collapsed` set (not a separately tracked flag) so
+// it can never drift out of sync with reality — `collapsed` is also mutated
+// directly by clicking individual nodes, not just by this switch.
+function renderToggleExpand(): void {
+  const isFullyExpanded = collapsed.size === 0;
+  toggleExpandBtn.setAttribute("aria-checked", String(isFullyExpanded));
+  toggleExpandText.textContent = isFullyExpanded ? "Expanded all" : "Collapsed";
+}
+
+// Every action that can change `collapsed` (this switch, or clicking a node
+// to expand/collapse it) must re-render the tree AND resync this switch —
+// routed through one function so neither path can forget the other.
+function renderTree(): void {
+  treeRenderer.render();
+  renderToggleExpand();
+}
+renderToggleExpand();
+
+toggleExpandBtn.addEventListener("click", () => {
+  if (collapsed.size === 0) {
+    defaultCollapse();
+  } else {
+    collapsed.clear();
+  }
+  renderTree();
+  viewport.fitView(treeRenderer.getVisibleNodes());
 });
 
 nav = createNavigation({
   collapsed,
   byId: nodeById,
   parentOf,
-  render: treeRenderer.render,
+  render: renderTree,
   svg,
   nodesG,
   viewport,
-  showDetail
+  showDetail,
+  getHideUnused: () => hideUnused,
 });
 
-byId('zoomIn').addEventListener('click', () => { viewport.zoomStep(1.2); });
-byId('zoomOut').addEventListener('click', () => { viewport.zoomStep(1/1.2); });
+byId("zoomIn").addEventListener("click", () => {
+  viewport.zoomStep(1.2);
+});
+byId("zoomOut").addEventListener("click", () => {
+  viewport.zoomStep(1 / 1.2);
+});
 
-byId('expandAll').addEventListener('click', () => {
-  collapsed.clear();
-  treeRenderer.render();
+byId("fitView").addEventListener("click", () => {
   viewport.fitView(treeRenderer.getVisibleNodes());
 });
-byId('collapseDefault').addEventListener('click', () => {
-  defaultCollapse();
-  treeRenderer.render();
-  viewport.fitView(treeRenderer.getVisibleNodes());
-});
-byId('fitView').addEventListener('click', () => {
+
+const toggleUnusedBtn = byId<HTMLButtonElement>("toggleUnused");
+const toggleUnusedText = byId("toggleUnusedText");
+const toggleUnusedCaption = byId("toggleUnusedCaption");
+
+const UNUSED_CAPTIONS: Record<"off" | "on", string> = {
+  off: "Showing all barrel re-exports, including unused ones.",
+  on: "Unused barrel re-exports are hidden.",
+};
+
+// The scan reports the edges it lost; with any of them missing, nothing was
+// marked unused (a consumer it never read could be the one asking for the
+// name), so the toggle has nothing to act on and would just look broken.
+const unusedUnavailable = DATA.coverageGaps.length > 0;
+
+function renderToggleUnused(): void {
+  if (unusedUnavailable) {
+    toggleUnusedBtn.disabled = true;
+    toggleUnusedBtn.setAttribute("aria-checked", "false");
+    toggleUnusedBtn.setAttribute(
+      "aria-label",
+      "Hiding unused re-exports is unavailable: the scan did not read every importing file",
+    );
+    toggleUnusedText.textContent = "All shown";
+    toggleUnusedCaption.textContent =
+      "Unavailable — the scan missed some imports, so an unrequested re-export can't be told apart from one it never read. See Warnings.";
+    return;
+  }
+  // "checked" tracks the switch's highlighted look (All shown), not the raw
+  // `hideUnused` flag — All shown is deliberately the highlighted/"on" state
+  // (the more permissive option reads as "enabled"), so aria-checked must
+  // agree with that, not with hideUnused directly, or a screen reader would
+  // announce the opposite of what's rendered.
+  toggleUnusedBtn.setAttribute("aria-checked", String(!hideUnused));
+  toggleUnusedText.textContent = hideUnused ? "Unused hidden" : "All shown";
+  toggleUnusedCaption.textContent = UNUSED_CAPTIONS[hideUnused ? "on" : "off"];
+}
+renderToggleUnused();
+
+toggleUnusedBtn.addEventListener("click", () => {
+  hideUnused = !hideUnused;
+  renderToggleUnused();
+  countDescendants(forest, hideUnused);
+  renderTree();
   viewport.fitView(treeRenderer.getVisibleNodes());
 });
 
 createSearch({
   byId: nodeById,
-  searchInput: byId<HTMLInputElement>('search'),
-  searchHint: byId('searchHint'),
-  jumpTo: nav.jumpTo
+  parentOf,
+  searchInput: byId<HTMLInputElement>("search"),
+  searchHint: byId("searchHint"),
+  jumpTo: nav.jumpTo,
+  getHideUnused: () => hideUnused,
 });
 
-treeRenderer.render();
-requestAnimationFrame(() => { viewport.fitView(treeRenderer.getVisibleNodes()); });
+renderTree();
+requestAnimationFrame(() => {
+  viewport.fitView(treeRenderer.getVisibleNodes());
+});

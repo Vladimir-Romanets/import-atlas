@@ -8,8 +8,19 @@ Scan a JavaScript/TypeScript project's local import graph from one or more entry
 - Resolves relative imports and `tsconfig.json` `paths` aliases (e.g. `@/*`) the same way TypeScript does, including `extends` chains.
 - Treats anything that isn't a local file (bare specifiers like `react`) as an external package: recorded on the importing file, never followed.
 - Builds one tree per entry point. A file imported from more than one place keeps a single canonical position — every other place it's imported from becomes a compact, dashed reference node that jumps to the canonical one on click, instead of duplicating its whole subtree.
+- Shows a barrel/index file's re-exports as its children in the tree — e.g. importing just `Button` from `components/button` still shows `Button`, `IconButton`, and `ButtonDropdown` if that's everything `components/button/index.ts` re-exports, since that's the file's real structure, not only what one importer happens to use. The viewer's "Unused hidden" toggle (see below) narrows this down.
+- Labels each node by the actual imported name — e.g. a node reached via `import { Button } from 'components/button'` is labeled "Button", even if that resolves through a barrel to a file that internally exports it as `default` — with the underlying file's own name shown in small text underneath, and the full path on hover.
 - Detects import cycles (flagged with ⚠ instead of being expanded forever).
 - Colors nodes by "layer" — the first path segment under `src/` (or the project root) — so a `shared < features < widgets < app`-style layout reads as distinct color groups without any project-specific config.
+
+## The interactive viewer
+
+The generated HTML is a single self-contained file: drag to pan, scroll (or the +/− buttons) to zoom, click a node to expand or collapse it, and use "Find a file" in the sidebar to jump straight to any file by name or path. The "View" section has two toggles:
+
+- **Expand all / Collapse** — flips between fully expanding every node and the default view (only the first level or so open).
+- **All shown / Unused hidden** — flipped to "Unused hidden", the tree drops a re-exported child whose name was never requested through the specific import edge that reaches it, so the tree reflects what each parent actually asked for. It's per-importer: if barrel1 re-exports `Shared` under a name nobody asks barrel1 for while barrel2 re-exports the same file under a name that IS requested of barrel2, only barrel1's occurrence hides — barrel2's stays visible. It's view-only — nothing is removed from the underlying scan, so switching it back off always restores the full picture — and it fails safe: a namespace import (`import * as X`), a dynamic `import()`, `require()`, or an `export * from` re-export always keeps showing all of its members, since there's no reliable way to know which specific export those actually reach for.
+
+  The toggle turns itself off entirely when the scan admits it didn't read every importing file — the `--max-files` cap fired, a file wouldn't parse, or a specifier wouldn't resolve. A file the walk never read could be exactly the one requesting a name, so rather than flag re-exports as unused on a graph with holes in it, nothing is flagged and the sidebar's Warnings section says which hole caused it. Files you removed yourself with `--exclude` don't disable it: that omission was requested, so the tree keeps matching what you asked to see.
 
 ## Usage
 
@@ -162,6 +173,8 @@ source and how the graph viewer's client code is organized.
 
 ## Known limitations
 
+- "Unused hidden" narrows per direct import edge, but a barrel is still rendered as ONE shared subtree (that's the same canonical/ref dedup that keeps the tree from blowing up) — so a barrel reached by many different plain-import consumers shows the union of everything any of them request, one hop down, not a version scoped to whichever specific path you're looking at.
+- "Unused hidden" can only see the consumers the scan walked to. A file that imports a name but sits outside every entry point's reach — or that you dropped with `--exclude` — is invisible to it, so a re-export those files keep alive can still be marked unused. Detectable holes (`--max-files`, a parse failure, an unresolvable specifier) disable the toggle outright; these two aren't detectable, so treat "unused" as "unused within what was scanned", and widen your entry points before acting on it.
 - JS/TS only — a CSS/SCSS/JSON/asset import (e.g. `./main.scss`) still shows up as a leaf node in the tree since it resolves to a real file on disk, it's just never parsed further for its own imports.
 - `paths` aliases only; package-level `exports` map remapping isn't resolved (external packages are never followed, so this rarely matters).
 - One HTML file per run; no incremental/watch mode yet.

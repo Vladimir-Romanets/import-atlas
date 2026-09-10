@@ -11,29 +11,43 @@ export function folderOf(relPath: string): string {
   return parts.length > 1 ? parts[parts.length - 2] : '';
 }
 
+/** The file's own basename WITH extension (e.g. "Button.tsx" for "src/components/Button.tsx") — unlike `label`, which has the extension stripped. */
+export function fileNameOf(relPath: string): string {
+  const parts = relPath.split('/');
+  return parts[parts.length - 1];
+}
+
 export function buildLayout(
   root: RenderNode,
   startY: number,
   nodes: RenderNode[],
   edges: [RenderNode, RenderNode][],
-  collapsed: Set<string>
+  collapsed: Set<string>,
+  hideUnused: boolean = false
 ): number {
   let cursor = startY;
-  const visit = (node: RenderNode, depth: number, parent: RenderNode | null): number => {
+  const visit = (node: RenderNode, depth: number, parent: RenderNode | null): number | null => {
+    if (hideUnused && node.unused) return null;
     node.depth = depth;
     node.x = depth * COL_W;
     nodes.push(node);
     if (parent) edges.push([parent, node]);
     const expanded = !node.ref && node.children.length > 0 && !collapsed.has(node.renderId);
     if (expanded){
-      const ys = node.children.map((c) => visit(c, depth+1, node));
-      node.y = (ys[0] + ys[ys.length-1]) / 2;
+      const ys = node.children
+        .map((c) => visit(c, depth+1, node))
+        .filter((y): y is number => y !== null);
+      node.y = ys.length ? (ys[0] + ys[ys.length-1]) / 2 : cursor;
+      if (!ys.length){
+        cursor += ROW_H;
+      }
     } else {
       node.y = cursor;
       cursor += ROW_H;
     }
     return node.y;
   };
-  visit(root, 0, null);
+  const y = visit(root, 0, null);
+  if (y === null) return startY;
   return cursor;
 }

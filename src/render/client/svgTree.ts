@@ -1,5 +1,5 @@
 import { SVGNS, ROW_H, NODE_W, NODE_H, LINE_GAP } from "./constants";
-import { buildLayout, shortLabel, folderOf } from "./layout";
+import { buildLayout, shortLabel, folderOf, fileNameOf } from "./layout";
 import type { ColorPair, RenderNode } from "./types";
 
 export interface TreeRenderer {
@@ -14,6 +14,7 @@ export interface TreeRendererOptions {
   colorOf: (layer: string) => ColorPair;
   collapsed: Set<string>;
   onActivate: (node: RenderNode) => void;
+  getHideUnused: () => boolean;
 }
 
 export function createTreeRenderer({
@@ -23,9 +24,19 @@ export function createTreeRenderer({
   colorOf,
   collapsed,
   onActivate,
+  getHideUnused,
 }: TreeRendererOptions): TreeRenderer {
   let visibleNodes: RenderNode[] = [];
   let visibleEdges: [RenderNode, RenderNode][] = [];
+  // Which node reads as "selected" — set explicitly on click/keyboard
+  // activation rather than derived from `:focus-visible`, since browsers
+  // deliberately suppress that ring for mouse-triggered focus (even a
+  // programmatic `.focus()` call made from inside a click handler still
+  // counts as mouse-modality) — so it would never show for a mouse click,
+  // only for Tab-based keyboard focus. Persists across re-renders here,
+  // in this closure, independent of whatever DOM element currently holds
+  // it (that element gets destroyed and recreated on every render()).
+  let activeId: string | null = null;
 
   const renderEdge = ([p, c]: [RenderNode, RenderNode]) => {
     const px = p.x + NODE_W;
@@ -48,12 +59,28 @@ export function createTreeRenderer({
     const classes = ["node"];
     if (node.ref) classes.push("is-ref");
     if (node.depth === 0) classes.push("entry");
+    if (node.renderId === activeId) classes.push("active");
     g.setAttribute("class", classes.join(" "));
     g.setAttribute("transform", `translate(${node.x},${node.y - NODE_H / 2})`);
     g.setAttribute("tabindex", "0");
     g.setAttribute("role", "button");
     g.dataset.id = node.renderId;
-    const fullLabel = `${node.label} — ${node.relPath}`;
+
+    // Import specifier used by the caller (e.g. 'Button'),
+    // falling back to the filename for entry points or namespace/dynamic imports.
+    const importedAs =
+      node.importedAs !== "*" && node.importedAs.length > 0
+        ? node.importedAs.join(", ")
+        : node.label;
+    const fileName = fileNameOf(node.relPath);
+    const folder = node.label === "index" ? folderOf(node.relPath) : "";
+    // Secondary label showing the actual filename (with extension).
+    // Includes parent folder for index/barrel files to avoid ambiguity.
+    const subText = folder ? `${folder}/${fileName}` : fileName;
+    const fullLabel =
+      importedAs !== node.label
+        ? `${importedAs} (${node.label}) — ${node.relPath}`
+        : `${node.label} — ${node.relPath}`;
     g.setAttribute(
       "aria-label",
       `${fullLabel}${node.note ? `. imports ${node.note}` : ""}`,
@@ -79,34 +106,34 @@ export function createTreeRenderer({
     const text = document.createElementNS(SVGNS, "text");
     text.setAttribute("class", "label");
     text.setAttribute("x", "24");
-    const folder = node.label === "index" ? folderOf(node.relPath) : "";
-    if (folder) {
+    if (subText) {
       text.setAttribute("y", String(NODE_H / 2 - 1));
       const nameTspan = document.createElementNS(SVGNS, "tspan");
       nameTspan.setAttribute("x", "24");
-      nameTspan.textContent = shortLabel(node.label);
+      nameTspan.textContent = shortLabel(importedAs);
       text.appendChild(nameTspan);
-      const folderTspan = document.createElementNS(SVGNS, "tspan");
-      folderTspan.setAttribute("class", "label-folder");
-      folderTspan.setAttribute("x", "24");
-      folderTspan.setAttribute("dy", "9");
-      folderTspan.textContent = `/${shortLabel(folder)}`;
-      text.appendChild(folderTspan);
+      const subTspan = document.createElementNS(SVGNS, "tspan");
+      subTspan.setAttribute("class", "label-sub");
+      subTspan.setAttribute("x", "24");
+      subTspan.setAttribute("dy", "9");
+      subTspan.textContent = shortLabel(subText);
+      text.appendChild(subTspan);
     } else {
       text.setAttribute("y", String(NODE_H / 2 + 4));
-      text.textContent = shortLabel(node.label);
+      text.textContent = shortLabel(importedAs);
     }
     g.appendChild(text);
 
     const rightX = NODE_W - 10;
+    // _count reflects visible descendants (accounting for hidden nodes).
+    // Using children.length directly would show a toggle chevron even
+    // if all children are filtered out.
+    const hasVisibleChildren = node._count > 0;
     const showBadge =
-      !node.ref &&
-      node.children.length > 0 &&
-      collapsed.has(node.renderId) &&
-      node._count > 0;
-    const badgeWidth = showBadge ? 10 + String(node._count).length * 6.5 : 0;
+      !node.ref && hasVisibleChildren && collapsed.has(node.renderId);
+    const badgeWidth = showBadge ? 8 + String(node._count).length * 6.5 : 0;
     let glyphOffset =
-      (node.ref || node.children.length ? 14 : 0) +
+      (node.ref || hasVisibleChildren ? 14 : 0) +
       (showBadge ? badgeWidth + 4 : 0);
     if (node.warn) {
       const w = document.createElementNS(SVGNS, "text");
@@ -127,6 +154,7 @@ export function createTreeRenderer({
       h.setAttribute("text-anchor", "end");
       h.textContent = "💡";
       g.appendChild(h);
+      glyphOffset += 14;
     }
 
     if (node.ref) {
@@ -137,11 +165,11 @@ export function createTreeRenderer({
       r.setAttribute("text-anchor", "end");
       r.textContent = "↗";
       g.appendChild(r);
-    } else if (node.children.length) {
+    } else if (hasVisibleChildren) {
       const chev = document.createElementNS(SVGNS, "text");
       chev.setAttribute("class", "chev");
       chev.setAttribute("x", String(rightX));
-      chev.setAttribute("y", String(NODE_H / 2 + 4));
+      chev.setAttribute("y", String(NODE_H / 2 + 3));
       chev.setAttribute("text-anchor", "end");
       chev.textContent = collapsed.has(node.renderId) ? "▸" : "▾";
       g.appendChild(chev);
@@ -153,12 +181,12 @@ export function createTreeRenderer({
         brect.setAttribute("x", String(rightX - 14 - badgeWidth));
         brect.setAttribute("y", String(NODE_H / 2 - 8));
         brect.setAttribute("width", String(badgeWidth));
-        brect.setAttribute("height", "16");
+        brect.setAttribute("height", "14.5");
         brect.setAttribute("rx", "8");
         bg.appendChild(brect);
         const btext = document.createElementNS(SVGNS, "text");
         btext.setAttribute("x", String(rightX - 14 - badgeWidth / 2));
-        btext.setAttribute("y", String(NODE_H / 2 + 4));
+        btext.setAttribute("y", String(NODE_H / 2 + 2.5));
         btext.setAttribute("text-anchor", "middle");
         btext.textContent = String(node._count);
         bg.appendChild(btext);
@@ -171,11 +199,24 @@ export function createTreeRenderer({
     g.appendChild(title);
 
     g.addEventListener("click", () => {
+      // Browsers don't consistently focus a clicked element just because it
+      // has tabindex (Chrome mostly does, Firefox/Safari often don't) — so
+      // relying on that to know what to re-focus after `render()` rebuilds
+      // the DOM is unreliable. Focus it explicitly here instead, so
+      // `render()`'s "restore whatever had focus" capture always has
+      // something correct to find, on every browser, mouse or keyboard.
+      g.focus();
+      // A ref click navigates on to its canonical target (see
+      // navigation.ts's jumpTo) — mark THAT as active, not the ref stub
+      // itself, so the outline lands where the view (and pulse ring)
+      // actually ends up.
+      activeId = node.ref ?? node.renderId;
       onActivate(node);
     });
     g.addEventListener("keydown", (e) => {
       if (e.key === "Enter" || e.key === " ") {
         e.preventDefault();
+        activeId = node.ref ?? node.renderId;
         onActivate(node);
       }
     });
@@ -187,16 +228,36 @@ export function createTreeRenderer({
     visibleNodes = [];
     visibleEdges = [];
     let nextY = 0;
+    const hideUnused = getHideUnused();
     forest.forEach((root) => {
-      nextY = buildLayout(root, nextY, visibleNodes, visibleEdges, collapsed);
+      nextY = buildLayout(
+        root,
+        nextY,
+        visibleNodes,
+        visibleEdges,
+        collapsed,
+        hideUnused,
+      );
       nextY += ROW_H * 2.2;
     });
+
+    // Rebuilding DOM destroys the focused element.
+    // Preserve the focused node's renderId and restore focus after re-rendering.
+    const activeEl = document.activeElement;
+    const focusedId =
+      activeEl instanceof SVGGElement && nodesG.contains(activeEl)
+        ? activeEl.dataset.id
+        : undefined;
 
     edgesG.innerHTML = "";
     nodesG.innerHTML = "";
 
     visibleEdges.forEach(renderEdge);
     visibleNodes.forEach(renderNode);
+
+    if (focusedId) {
+      nodesG.querySelector<SVGGElement>(`[data-id="${focusedId}"]`)?.focus();
+    }
   };
 
   return { render, getVisibleNodes: () => visibleNodes };
