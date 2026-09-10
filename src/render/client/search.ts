@@ -1,32 +1,22 @@
 import type { RenderNode } from './types';
-import { isVisible } from './visibility';
 
 export interface SearchOptions {
   byId: Record<string, RenderNode>;
-  parentOf: Record<string, string>;
   searchInput: HTMLInputElement;
   searchHint: HTMLElement;
   jumpTo: (id: string) => void;
-  getHideUnused: () => boolean;
 }
 
-export function createSearch({ byId, parentOf, searchInput, searchHint, jumpTo, getHideUnused }: SearchOptions): void {
+export function createSearch({ byId, searchInput, searchHint, jumpTo }: SearchOptions): void {
   const allNodes = Object.keys(byId).map((k) => byId[k]);
   let matches: RenderNode[] = [];
   let matchIdx = -1;
 
-  // Recomputed fresh on every jump attempt (typing or Enter) rather than
-  // cached across them — "hide unused" can be toggled between the two
-  // without touching the search box, and a stale list would jump to a node
-  // that's no longer laid out (stale x/y, no pulse ring, detail panel
-  // pointing off-screen).
   function computeMatches(): RenderNode[] {
     const q = searchInput.value.trim().toLowerCase();
     if (!q) return [];
-    const hideUnused = getHideUnused();
     return allNodes.filter((n) =>
-      isVisible(n, byId, parentOf, hideUnused) &&
-      (n.label.toLowerCase().indexOf(q) !== -1 || n.relPath.toLowerCase().indexOf(q) !== -1)
+      n.label.toLowerCase().indexOf(q) !== -1 || n.relPath.toLowerCase().indexOf(q) !== -1
     );
   }
 

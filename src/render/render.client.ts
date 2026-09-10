@@ -32,8 +32,7 @@ renderSidebar(DATA, colorOf);
 renderFindings(DATA);
 
 const { byId: nodeById, parentOf } = buildIndex(forest);
-let hideUnused = false;
-countDescendants(forest, hideUnused);
+countDescendants(forest);
 const { collapsed, defaultCollapse } = createCollapsedState(forest);
 
 const svg = byId<SVGSVGElement>("canvas");
@@ -80,7 +79,6 @@ const treeRenderer = createTreeRenderer({
   colorOf,
   collapsed,
   onActivate: (node) => nav.onNodeActivate(node),
-  getHideUnused: () => hideUnused,
 });
 
 const toggleExpandBtn = byId<HTMLButtonElement>("toggleExpand");
@@ -124,7 +122,6 @@ nav = createNavigation({
   nodesG,
   viewport,
   showDetail,
-  getHideUnused: () => hideUnused,
 });
 
 byId("zoomIn").addEventListener("click", () => {
@@ -139,63 +136,14 @@ byId("fitView").addEventListener("click", () => {
   viewport.fitView(treeRenderer.getVisibleNodes());
 });
 
-const toggleUnusedBtn = byId<HTMLButtonElement>("toggleUnused");
-const toggleUnusedText = byId("toggleUnusedText");
-const toggleUnusedCaption = byId("toggleUnusedCaption");
-
-const UNUSED_CAPTIONS: Record<"off" | "on", string> = {
-  off: "Showing all barrel re-exports, including unused ones.",
-  on: "Unused barrel re-exports are hidden.",
-};
-
-// The scan reports the edges it lost; with any of them missing, nothing was
-// marked unused (a consumer it never read could be the one asking for the
-// name), so the toggle has nothing to act on and would just look broken.
-const unusedUnavailable = DATA.coverageGaps.length > 0;
-
-function renderToggleUnused(): void {
-  if (unusedUnavailable) {
-    toggleUnusedBtn.disabled = true;
-    toggleUnusedBtn.setAttribute("aria-checked", "false");
-    toggleUnusedBtn.setAttribute(
-      "aria-label",
-      "Hiding unused re-exports is unavailable: the scan did not read every importing file",
-    );
-    toggleUnusedText.textContent = "All shown";
-    toggleUnusedCaption.textContent =
-      "Unavailable — the scan missed some imports, so an unrequested re-export can't be told apart from one it never read. See Warnings.";
-    return;
-  }
-  // "checked" tracks the switch's highlighted look (All shown), not the raw
-  // `hideUnused` flag — All shown is deliberately the highlighted/"on" state
-  // (the more permissive option reads as "enabled"), so aria-checked must
-  // agree with that, not with hideUnused directly, or a screen reader would
-  // announce the opposite of what's rendered.
-  toggleUnusedBtn.setAttribute("aria-checked", String(!hideUnused));
-  toggleUnusedText.textContent = hideUnused ? "Unused hidden" : "All shown";
-  toggleUnusedCaption.textContent = UNUSED_CAPTIONS[hideUnused ? "on" : "off"];
-}
-renderToggleUnused();
-
-toggleUnusedBtn.addEventListener("click", () => {
-  showTree();
-  hideUnused = !hideUnused;
-  renderToggleUnused();
-  countDescendants(forest, hideUnused);
-  renderTree();
-  viewport.fitView(treeRenderer.getVisibleNodes());
-});
-
 createSearch({
   byId: nodeById,
-  parentOf,
   searchInput: byId<HTMLInputElement>("search"),
   searchHint: byId("searchHint"),
   jumpTo: (id) => {
     showTree();
     nav.jumpTo(id);
   },
-  getHideUnused: () => hideUnused,
 });
 
 renderTree();
