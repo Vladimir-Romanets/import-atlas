@@ -1,8 +1,20 @@
 import { ROW_H, COL_W } from './constants';
 import type { RenderNode } from './types';
 
+// Truncates by estimated rendered width rather than raw character count.
+// Labels are often ALL_CAPS/snake_case identifiers rendered bold — those
+// glyphs are noticeably wider than lowercase text, so a flat char-count
+// cutoff (e.g. 28) undershoots and lets wide labels overflow the node box.
+const WIDE_CHAR = /[A-Z0-9_]/;
+const MAX_WIDTH = 28;
+
 export function shortLabel(s: string): string {
-  return s.length > 28 ? s.slice(0,27) + '…' : s;
+  let width = 0;
+  for (let i = 0; i < s.length; i++) {
+    width += WIDE_CHAR.test(s[i]) ? 1.3 : 1;
+    if (width > MAX_WIDTH) return s.slice(0, i) + '…';
+  }
+  return s;
 }
 
 /** For an "index" node, the name of the folder it lives in (e.g. "utils" for "src/utils/index.ts"). */
