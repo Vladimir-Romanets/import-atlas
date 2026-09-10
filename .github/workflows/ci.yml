@@ -1,0 +1,38 @@
+name: CI
+
+# Release runs the same checks, but only after a merge to main — too late to
+# stop a broken commit from landing, and later PRs then build on it. This
+# runs them on the pull request instead.
+on:
+  pull_request:
+
+permissions:
+  contents: read
+
+# A new push to the same PR makes the run in flight irrelevant.
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 8.15.9
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm test
+      # `build`, not `typecheck` — it's what the release itself runs, so a PR
+      # is checked against exactly the step that will have to succeed later.
+      # It regenerates src/render.generated.ts first, which is gitignored, so
+      # the client code is type-checked and bundled from source either way.
+      - run: pnpm run build
