@@ -1,3 +1,10 @@
+# [0.5.0](https://github.com/Vladimir-Romanets/import-atlas/compare/v0.4.1...v0.5.0) (2026-09-10)
+
+
+### Features
+
+* list exports nothing imports in a Findings tab ([#14](https://github.com/Vladimir-Romanets/import-atlas/issues/14)) ([bc42059](https://github.com/Vladimir-Romanets/import-atlas/commit/bc4205980667fe3f1cd9d2feb1ef205fcbf84e63))
+
 ## [0.4.1](https://github.com/Vladimir-Romanets/import-atlas/compare/v0.4.0...v0.4.1) (2026-09-10)
 
 
