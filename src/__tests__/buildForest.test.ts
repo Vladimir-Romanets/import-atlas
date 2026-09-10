@@ -128,8 +128,8 @@ describe('buildForest — importedAs (the viewer\'s primary node label)', () => 
       ['app/entry.ts'],
       ['app/entry.ts', 'app/barrel1.ts', 'app/barrel2.ts', 'app/shared.ts'],
       [
-        edge('app/entry.ts', 'app/barrel1.ts', ['Foo']),
-        edge('app/entry.ts', 'app/barrel2.ts', ['Bar']),
+        edge('app/entry.ts', 'app/barrel1.ts', ['One']),
+        edge('app/entry.ts', 'app/barrel2.ts', ['Two']),
         edge('app/barrel1.ts', 'app/shared.ts', ['One'], { isReexport: true, exposedNames: ['One'] }),
         edge('app/barrel2.ts', 'app/shared.ts', ['Two'], { isReexport: true, exposedNames: ['Two'] }),
       ],
@@ -215,5 +215,189 @@ describe('buildForest — entry points own their canonical position', () => {
     expect(underB.ref).toBe(underA.renderId);
     const ids = allRenderIds(forest);
     expect(new Set(ids).size).toBe(ids.length);
+  });
+});
+
+describe('buildForest — a barrel shows what its importer asked for', () => {
+  /** entry imports `Button`; another page imports `IconButton`; both go through one barrel. */
+  const twoConsumers = () =>
+    makeScan(
+      ['app/entry.ts'],
+      ['app/entry.ts', 'app/page.ts', 'ui/index.ts', 'ui/Button.ts', 'ui/IconButton.ts'],
+      [
+        edge('app/entry.ts', 'ui/index.ts', ['Button']),
+        edge('app/entry.ts', 'app/page.ts', ['Page']),
+        edge('app/page.ts', 'ui/index.ts', ['IconButton']),
+        edge('ui/index.ts', 'ui/Button.ts', ['Button'], { isReexport: true }),
+        edge('ui/index.ts', 'ui/IconButton.ts', ['IconButton'], { isReexport: true }),
+      ],
+    );
+
+  it('drops the re-exports the importer never asked for', () => {
+    const forest = buildForest(twoConsumers());
+    const barrelUnderEntry = findChild(forest, 'ui/index.ts');
+
+    expect(barrelUnderEntry.children.map((c: any) => c.fileId)).toEqual(['ui/Button.ts']);
+  });
+
+  it('gives a second importer its own expansion rather than a ref to the first one\'s children', () => {
+    const forest = buildForest(twoConsumers());
+    const barrelUnderEntry = findChild(forest, 'ui/index.ts');
+    const page = findChild(forest, 'app/page.ts');
+    const barrelUnderPage = findChild(page.children, 'ui/index.ts');
+
+    // Two real expansions of the same file, each scoped to its own request.
+    expect(barrelUnderEntry.ref).toBeNull();
+    expect(barrelUnderPage.ref).toBeNull();
+    expect(barrelUnderPage.renderId).not.toBe(barrelUnderEntry.renderId);
+    expect(barrelUnderPage.children.map((c: any) => c.fileId)).toEqual(['ui/IconButton.ts']);
+  });
+
+  it('still collapses two importers that ask for the same thing into one expansion', () => {
+    const scan = makeScan(
+      ['app/entry.ts'],
+      ['app/entry.ts', 'app/page.ts', 'ui/index.ts', 'ui/Button.ts'],
+      [
+        edge('app/entry.ts', 'ui/index.ts', ['Button']),
+        edge('app/entry.ts', 'app/page.ts', ['Page']),
+        edge('app/page.ts', 'ui/index.ts', ['Button']),
+        edge('ui/index.ts', 'ui/Button.ts', ['Button'], { isReexport: true }),
+      ],
+    );
+
+    const forest = buildForest(scan);
+    const underEntry = findChild(forest, 'ui/index.ts');
+    const underPage = findChild(findChild(forest, 'app/page.ts').children, 'ui/index.ts');
+
+    expect(underEntry.ref).toBeNull();
+    expect(underPage.ref).toBe(underEntry.renderId);
+  });
+
+  it('matches on the outward name a renamed re-export offers, not the one it pulls', () => {
+    const scan = makeScan(
+      ['app/entry.ts'],
+      ['app/entry.ts', 'ui/index.ts', 'ui/impl.ts'],
+      [
+        edge('app/entry.ts', 'ui/index.ts', ['Alpha']),
+        edge('ui/index.ts', 'ui/impl.ts', ['A'], { isReexport: true, exposedNames: ['Alpha'] }),
+      ],
+    );
+
+    const barrel = findChild(buildForest(scan), 'ui/index.ts');
+    expect(barrel.children.map((c: any) => c.fileId)).toEqual(['ui/impl.ts']);
+  });
+
+  it('narrows nothing when the barrel is pulled wholesale by a namespace import', () => {
+    const scan = makeScan(
+      ['app/entry.ts'],
+      ['app/entry.ts', 'ui/index.ts', 'ui/Button.ts', 'ui/IconButton.ts'],
+      [
+        edge('app/entry.ts', 'ui/index.ts', '*'),
+        edge('ui/index.ts', 'ui/Button.ts', ['Button'], { isReexport: true }),
+        edge('ui/index.ts', 'ui/IconButton.ts', ['IconButton'], { isReexport: true }),
+      ],
+    );
+
+    const barrel = findChild(buildForest(scan), 'ui/index.ts');
+    expect(barrel.children).toHaveLength(2);
+  });
+
+  it('keeps a child reached by `export * from`, whose forwarded names are unknown', () => {
+    const scan = makeScan(
+      ['app/entry.ts'],
+      ['app/entry.ts', 'ui/index.ts', 'ui/Button.ts', 'ui/IconButton.ts'],
+      [
+        edge('app/entry.ts', 'ui/index.ts', ['Button']),
+        edge('ui/index.ts', 'ui/Button.ts', ['Button'], { isReexport: true }),
+        edge('ui/index.ts', 'ui/IconButton.ts', '*', { isReexport: true, exposedNames: '*' }),
+      ],
+    );
+
+    const barrel = findChild(buildForest(scan), 'ui/index.ts');
+    expect(barrel.children.map((c: any) => c.fileId)).toEqual([
+      'ui/Button.ts',
+      'ui/IconButton.ts',
+    ]);
+  });
+
+  it('keeps what the barrel imports outright, which is its own usage rather than a forwarded name', () => {
+    const scan = makeScan(
+      ['app/entry.ts'],
+      ['app/entry.ts', 'ui/index.ts', 'ui/Button.ts', 'ui/styles.ts'],
+      [
+        edge('app/entry.ts', 'ui/index.ts', ['Button']),
+        edge('ui/index.ts', 'ui/Button.ts', ['Button'], { isReexport: true }),
+        edge('ui/index.ts', 'ui/styles.ts', '*'),
+      ],
+    );
+
+    const barrel = findChild(buildForest(scan), 'ui/index.ts');
+    expect(barrel.children.map((c: any) => c.fileId)).toContain('ui/styles.ts');
+  });
+
+  it('shows an entry point that is itself a barrel in full, since nothing in the scan asks it for anything', () => {
+    const scan = makeScan(
+      ['ui/index.ts'],
+      ['ui/index.ts', 'ui/Button.ts', 'ui/IconButton.ts'],
+      [
+        edge('ui/index.ts', 'ui/Button.ts', ['Button'], { isReexport: true }),
+        edge('ui/index.ts', 'ui/IconButton.ts', ['IconButton'], { isReexport: true }),
+      ],
+    );
+
+    expect(buildForest(scan)[0].children).toHaveLength(2);
+  });
+
+  it('does not split a plain (non-barrel) file per importer, since its contents do not depend on the request', () => {
+    const scan = makeScan(
+      ['app/entry.ts'],
+      ['app/entry.ts', 'app/page.ts', 'app/utils.ts'],
+      [
+        edge('app/entry.ts', 'app/utils.ts', ['one']),
+        edge('app/entry.ts', 'app/page.ts', ['Page']),
+        edge('app/page.ts', 'app/utils.ts', ['two']),
+      ],
+    );
+
+    const forest = buildForest(scan);
+    const underEntry = findChild(forest, 'app/utils.ts');
+    const underPage = findChild(findChild(forest, 'app/page.ts').children, 'app/utils.ts');
+
+    expect(underEntry.ref).toBeNull();
+    expect(underPage.ref).toBe(underEntry.renderId);
+  });
+
+  it('narrows through a chain of barrels, carrying the request the outer one forwards', () => {
+    const scan = makeScan(
+      ['app/entry.ts'],
+      ['app/entry.ts', 'ui/index.ts', 'ui/button/index.ts', 'ui/button/Button.ts', 'ui/button/IconButton.ts'],
+      [
+        edge('app/entry.ts', 'ui/index.ts', ['Button']),
+        edge('ui/index.ts', 'ui/button/index.ts', ['Button'], { isReexport: true }),
+        edge('ui/button/index.ts', 'ui/button/Button.ts', ['Button'], { isReexport: true }),
+        edge('ui/button/index.ts', 'ui/button/IconButton.ts', ['IconButton'], { isReexport: true }),
+      ],
+    );
+
+    const inner = findChild(buildForest(scan), 'ui/button/index.ts');
+    expect(inner.children.map((c: any) => c.fileId)).toEqual(['ui/button/Button.ts']);
+  });
+
+  it('flags a cycle back into a barrel occurrence still being expanded', () => {
+    const scan = makeScan(
+      ['app/entry.ts'],
+      ['app/entry.ts', 'ui/index.ts', 'ui/Button.ts'],
+      [
+        edge('app/entry.ts', 'ui/index.ts', ['Button']),
+        edge('ui/index.ts', 'ui/Button.ts', ['Button'], { isReexport: true }),
+        edge('ui/Button.ts', 'ui/index.ts', ['Button']),
+      ],
+    );
+
+    const barrel = findChild(buildForest(scan), 'ui/index.ts');
+    const backEdge = findChild(findChild(barrel.children, 'ui/Button.ts').children, 'ui/index.ts');
+
+    expect(backEdge.warn).toBe('circular import');
+    expect(backEdge.ref).toBe(barrel.renderId);
   });
 });
