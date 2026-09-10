@@ -1,3 +1,10 @@
+## [0.4.1](https://github.com/Vladimir-Romanets/import-atlas/compare/v0.4.0...v0.4.1) (2026-09-10)
+
+
+### Bug Fixes
+
+* keep node labels inside their box, restyle layer marker ([#12](https://github.com/Vladimir-Romanets/import-atlas/issues/12)) ([8b78805](https://github.com/Vladimir-Romanets/import-atlas/commit/8b78805eb142012445f56e1c16f18f9182e03775))
+
 # [0.4.0](https://github.com/Vladimir-Romanets/import-atlas/compare/v0.3.0...v0.4.0) (2026-09-10)
 
 
