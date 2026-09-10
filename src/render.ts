@@ -35,6 +35,16 @@ export function renderHtml(
       count,
     }));
 
+  // `buildForest` marks nothing unused once the walk reports gaps, so say so
+  // here rather than leaving a toggle that silently hides nothing.
+  const warnings =
+    scanResult.coverageGaps.length > 0
+      ? [
+          ...scanResult.warnings,
+          `Hiding unused re-exports is unavailable: the scan missed import edges (${scanResult.coverageGaps.join("; ")}), and a file it never read could be the one requesting a re-exported name.`,
+        ]
+      : scanResult.warnings;
+
   const data: RenderData = {
     title: options.title,
     root: scanResult.root,
@@ -44,7 +54,8 @@ export function renderHtml(
     layers,
     layerCounts,
     topFanIn,
-    warnings: scanResult.warnings,
+    warnings,
+    coverageGaps: scanResult.coverageGaps,
     forest,
     generatedAt: new Date().toISOString(),
   };

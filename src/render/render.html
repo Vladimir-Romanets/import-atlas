@@ -1,4 +1,3 @@
-
 <div class="app">
   <aside class="sidebar">
     <div>
@@ -7,21 +6,52 @@
     </div>
     <section>
       <h2>Find a file</h2>
-      <input id="search" type="text" placeholder="filename or path…" autocomplete="off">
+      <input
+        id="search"
+        type="text"
+        placeholder="filename or path…"
+        autocomplete="off"
+      />
       <div class="search-hint" id="searchHint"></div>
     </section>
     <section>
       <h2>View</h2>
-      <div class="btn-row">
-        <button class="ctl" id="expandAll" type="button">Expand all</button>
-        <button class="ctl" id="collapseDefault" type="button">Collapse</button>
-        <button class="ctl" id="fitView" type="button">Fit view</button>
-      </div>
+      <button
+        type="button"
+        id="toggleExpand"
+        class="switch"
+        role="switch"
+        aria-checked="false"
+        aria-label="Expand or collapse all nodes"
+      >
+        <span class="switch-track">
+          <span class="switch-thumb"></span>
+          <span class="switch-text" id="toggleExpandText">Collapsed</span>
+        </span>
+      </button>
+      <button
+        type="button"
+        id="toggleUnused"
+        class="switch"
+        role="switch"
+        aria-checked="true"
+        aria-label="Show all barrel re-exports, including ones never imported by name"
+      >
+        <span class="switch-track">
+          <span class="switch-thumb"></span>
+          <span class="switch-text" id="toggleUnusedText">All shown</span>
+        </span>
+      </button>
+      <p class="switch-caption" id="toggleUnusedCaption"></p>
+      <button class="ctl" id="fitView" type="button">Fit view</button>
     </section>
     <section class="legend">
       <h2>Layers</h2>
       <ul id="legendList"></ul>
-      <div class="ref-row"><span class="ref-swatch"></span> dashed = re-used elsewhere, click to jump</div>
+      <div class="ref-row">
+        <span class="ref-swatch"></span> dashed = re-used elsewhere, click to
+        jump
+      </div>
     </section>
     <section>
       <h2>Highest fan-in</h2>
@@ -38,11 +68,17 @@
       <div class="d-warn" id="dWarn"></div>
       <div class="d-hint" id="dHint"></div>
     </div>
-    <p class="hint">Click a node to expand/collapse. Drag to pan, scroll to zoom. Dashed nodes jump to where the file is fully expanded.</p>
+    <p class="hint">
+      Click a node to expand/collapse. Drag to pan, scroll to zoom. Dashed nodes
+      jump to where the file is fully expanded.
+    </p>
   </aside>
   <main class="canvas-wrap">
     <svg id="canvas" aria-label="Import dependency tree">
-      <g id="viewport"><g id="edges"></g><g id="nodes"></g></g>
+      <g id="viewport">
+        <g id="edges"></g>
+        <g id="nodes"></g>
+      </g>
     </svg>
     <div class="zoom-controls">
       <button type="button" id="zoomIn" aria-label="Zoom in">+</button>

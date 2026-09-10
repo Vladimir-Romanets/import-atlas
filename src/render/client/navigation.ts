@@ -1,6 +1,7 @@
 import { SVGNS, NODE_W, NODE_H } from './constants';
 import type { RenderNode } from './types';
 import type { Viewport } from './viewport';
+import { isVisible } from './visibility';
 
 export interface Navigation {
   jumpTo: (id: string) => void;
@@ -17,9 +18,10 @@ export interface NavigationOptions {
   nodesG: SVGGElement;
   viewport: Viewport;
   showDetail: (node: RenderNode) => void;
+  getHideUnused: () => boolean;
 }
 
-export function createNavigation({ collapsed, byId, parentOf, render, svg, nodesG, viewport, showDetail }: NavigationOptions): Navigation {
+export function createNavigation({ collapsed, byId, parentOf, render, svg, nodesG, viewport, showDetail, getHideUnused }: NavigationOptions): Navigation {
   const { view, clamp, applyTransform } = viewport;
 
   const expandAncestors = (id: string) => {
@@ -31,10 +33,15 @@ export function createNavigation({ collapsed, byId, parentOf, render, svg, nodes
   };
 
   const jumpTo = (id: string) => {
-    expandAncestors(id);
-    render();
     const node = byId[id];
     if (!node) return;
+    // A ref's target can sit under an ancestor that "hide unused" prunes —
+    // expanding collapse state doesn't reveal it, since that pruning ignores
+    // collapse entirely. Jumping anyway would pan to a node that was never
+    // laid out: stale x/y, no pulse ring, detail panel pointing off-screen.
+    if (!isVisible(node, byId, parentOf, getHideUnused())) return;
+    expandAncestors(id);
+    render();
     const rect = svg.getBoundingClientRect();
     const k = clamp(view.k, 0.6, 1.2);
     view.k = k;
@@ -63,14 +70,23 @@ export function createNavigation({ collapsed, byId, parentOf, render, svg, nodes
       jumpTo(node.ref);
       return;
     }
-    if (node.children.length){
+    // `_count` (computed by countDescendants with the current hide-unused
+    // state already baked in) — not `children.length` — is what svgTree.ts
+    // draws the chevron/badge from. A node whose only children are filtered
+    // out shows neither, so toggling `collapsed` for it here would be an
+    // invisible no-op click that still desyncs the Expand all/Collapse switch.
+    if (node._count > 0){
       if (collapsed.has(node.renderId)) {
         collapsed.delete(node.renderId);
       } else {
         collapsed.add(node.renderId);
       }
-      render();
     }
+    // Always re-render, even for a leaf with nothing to expand/collapse —
+    // svgTree.ts's `.active` class (which node reads as "selected") is only
+    // ever painted during a render pass, so skipping it here would leave a
+    // plain leaf click with no visible feedback at all.
+    render();
   };
 
   return { jumpTo, onNodeActivate, expandAncestors };

@@ -1,7 +1,7 @@
 import * as fs from 'fs';
 import * as path from 'path';
 import { loadTsConfig } from './configLoader';
-import { extractImportSpecifiers } from './parseImports';
+import { extractImportSpecifiers, type ImportSpecifierInfo } from './parseImports';
 import { resolveSpecifier } from './resolveModule';
 import type { Edge, FileNode, ScanResult } from './types';
 
@@ -48,6 +48,8 @@ export function scan(entryFiles: string[], options: ScanOptions): ScanResult {
   const edges: Edge[] = [];
   const seen = new Set<string>();
   const queue: string[] = [];
+  // Import edges the walk lost without being asked to — see ScanResult.
+  const coverageGaps: string[] = [];
 
   function toId(absPath: string): string {
     return path.relative(root, absPath).split(path.sep).join('/');
@@ -63,17 +65,21 @@ export function scan(entryFiles: string[], options: ScanOptions): ScanResult {
     if (!fs.existsSync(abs)) {
       throw new Error(`Entry file not found: ${entry} (resolved to ${abs})`);
     }
+    // Overlapping globs (or a path simply listed twice) resolve to the same
+    // file — keep the first occurrence only, so it stays one entry point.
+    if (seen.has(abs)) continue;
+    seen.add(abs);
     entries.push(toId(abs));
-    if (!seen.has(abs)) {
-      seen.add(abs);
-      queue.push(abs);
-    }
+    queue.push(abs);
   }
 
   while (queue.length > 0) {
     if (Object.keys(nodes).length >= maxFiles) {
       warnings.push(
         `Stopped after ${maxFiles} files (--max-files). Pass a higher limit or narrower entry points.`
+      );
+      coverageGaps.push(
+        `the --max-files cap (${maxFiles}) stopped the walk with ${queue.length} file(s) still unread`
       );
       break;
     }
@@ -84,31 +90,38 @@ export function scan(entryFiles: string[], options: ScanOptions): ScanResult {
 
     const externalImports: string[] = [];
     const unresolvedImports: string[] = [];
-    let specifiers: string[] = [];
+    let specifiers: ImportSpecifierInfo[] = [];
     if (isParseable(current)) {
       try {
         specifiers = extractImportSpecifiers(current);
       } catch (err) {
         warnings.push(`Could not parse ${id}: ${(err as Error).message}`);
+        coverageGaps.push(`${id} could not be parsed, so its own imports are unknown`);
       }
     }
 
     for (const spec of specifiers) {
-      const { resolved, external } = resolveSpecifier(spec, current, tsconfig);
+      const { resolved, external } = resolveSpecifier(spec.moduleSpecifier, current, tsconfig);
 
       if (external) {
-        externalImports.push(spec);
+        externalImports.push(spec.moduleSpecifier);
         continue;
       }
       if (!resolved) {
-        unresolvedImports.push(spec);
+        unresolvedImports.push(spec.moduleSpecifier);
         continue;
       }
 
       const childId = toId(resolved);
       if (isExcluded(childId)) continue;
 
-      edges.push({ from: id, to: childId });
+      edges.push({
+        from: id,
+        to: childId,
+        names: spec.names,
+        exposedNames: spec.exposedNames,
+        isReexport: spec.isReexport
+      });
 
       if (!seen.has(resolved)) {
         seen.add(resolved);
@@ -127,8 +140,15 @@ export function scan(entryFiles: string[], options: ScanOptions): ScanResult {
     };
   }
 
+  // An edge is recorded as soon as its target resolves, before that target is
+  // read — so breaking the walk on the cap leaves edges pointing at files that
+  // never became nodes. Drop them: everything downstream looks an endpoint up
+  // by id and expects a real node back. The gap they represent is already
+  // reported by the cap's own coverageGaps entry.
+  const walkedEdges = edges.filter((edge) => nodes[edge.to] !== undefined);
+
   const fanIn: Record<string, number> = {};
-  for (const edge of edges) {
+  for (const edge of walkedEdges) {
     fanIn[edge.to] = (fanIn[edge.to] || 0) + 1;
   }
 
@@ -136,5 +156,15 @@ export function scan(entryFiles: string[], options: ScanOptions): ScanResult {
     warnings.push('No tsconfig.json found — path aliases (e.g. "@/*") will not resolve.');
   }
 
-  return { root, entries, nodes, edges, fanIn, warnings };
+  // An unresolved specifier is an edge we meant to record and couldn't, so
+  // the file it points at is left short of one of its real consumers.
+  const unresolved = Object.values(nodes).reduce(
+    (total, file) => total + file.unresolvedImports.length,
+    0
+  );
+  if (unresolved > 0) {
+    coverageGaps.push(`${unresolved} import(s) could not be resolved to a file on disk`);
+  }
+
+  return { root, entries, nodes, edges: walkedEdges, fanIn, warnings, coverageGaps };
 }
