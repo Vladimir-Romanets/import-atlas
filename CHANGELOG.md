@@ -1,3 +1,15 @@
+# [0.4.0](https://github.com/Vladimir-Romanets/import-atlas/compare/v0.3.0...v0.4.0) (2026-09-10)
+
+
+### Bug Fixes
+
+* drop import edges to files the --max-files cap left unread ([8ee7a6d](https://github.com/Vladimir-Romanets/import-atlas/commit/8ee7a6d5b94fa05f448fe6390eaa07a082dfee2b))
+
+
+### Features
+
+* hide barrel re-exports that nothing imports by name ([97dbb45](https://github.com/Vladimir-Romanets/import-atlas/commit/97dbb45c9ba6e339f01bac14b8e588c78f0e3e06))
+
 # [0.3.0](https://github.com/Vladimir-Romanets/import-atlas/compare/v0.2.0...v0.3.0) (2026-09-09)
 
 
