@@ -14,7 +14,6 @@ export interface TreeRendererOptions {
   colorOf: (layer: string) => ColorPair;
   collapsed: Set<string>;
   onActivate: (node: RenderNode) => void;
-  getHideUnused: () => boolean;
 }
 
 export function createTreeRenderer({
@@ -24,7 +23,6 @@ export function createTreeRenderer({
   colorOf,
   collapsed,
   onActivate,
-  getHideUnused,
 }: TreeRendererOptions): TreeRenderer {
   let visibleNodes: RenderNode[] = [];
   let visibleEdges: [RenderNode, RenderNode][] = [];
@@ -137,9 +135,6 @@ export function createTreeRenderer({
     g.appendChild(text);
 
     const rightX = NODE_W - 10;
-    // _count reflects visible descendants (accounting for hidden nodes).
-    // Using children.length directly would show a toggle chevron even
-    // if all children are filtered out.
     const hasVisibleChildren = node._count > 0;
     const showBadge =
       !node.ref && hasVisibleChildren && collapsed.has(node.renderId);
@@ -240,7 +235,6 @@ export function createTreeRenderer({
     visibleNodes = [];
     visibleEdges = [];
     let nextY = 0;
-    const hideUnused = getHideUnused();
     forest.forEach((root) => {
       nextY = buildLayout(
         root,
@@ -248,7 +242,6 @@ export function createTreeRenderer({
         visibleNodes,
         visibleEdges,
         collapsed,
-        hideUnused,
       );
       nextY += ROW_H * 2.2;
     });

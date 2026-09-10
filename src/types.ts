@@ -121,8 +121,6 @@ export interface TreeNode {
   hint: string;
   /** If set, this occurrence is a compact reference — click jumps to the renderId it names. */
   ref: string | null;
-  /** True when THIS specific parent->child edge never requested the child by name — per-occurrence, so the same file can be `unused` under one parent and not another. Drives the "hide unused" view. */
-  unused: boolean;
   /** Name(s) THIS occurrence's own direct parent edge calls it by — `exposedNames` of that one edge (for a plain import, identical to what's pulled; for a re-export, the forwarded/outward name, e.g. 'Button' even when the file itself pulls its default export internally as something else). '*' for an entry point, or when the edge's names couldn't be determined (namespace import, dynamic import, `require`, `export * from`). Drives the node's primary label in the viewer — falls back to the file's own name when '*'. */
   importedAs: string[] | '*';
   fanIn: number;
@@ -138,7 +136,7 @@ export interface RenderData {
   layerCounts: Record<string, number>;
   topFanIn: { path: string; count: number }[];
   warnings: string[];
-  /** `ScanResult.coverageGaps` — non-empty disables the viewer's "Unused hidden" toggle, since nothing is flagged `unused` when the walk admits it missed edges. */
+  /** `ScanResult.coverageGaps` — non-empty puts a caveat above the Findings list, since a file the walk never read could be the one importing a name listed there. */
   coverageGaps: string[];
   /** Exports nothing in the scan imports, for the viewer's Findings tab. Sorted most-trustworthy first. */
   findings: Finding[];

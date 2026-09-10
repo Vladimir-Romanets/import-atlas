@@ -12,7 +12,7 @@ export function buildIndex(forest: RenderNode[]): { byId: Record<string, RenderN
   return { byId, parentOf };
 }
 
-export function countDescendants(forest: RenderNode[], hideUnused: boolean = false): void {
+export function countDescendants(forest: RenderNode[]): void {
   const countDesc = (node: RenderNode): number => {
     if (node.ref || !node.children.length){
       node._count = 0;
@@ -20,7 +20,6 @@ export function countDescendants(forest: RenderNode[], hideUnused: boolean = fal
     }
     let total = 0;
     node.children.forEach((c) => {
-      if (hideUnused && c.unused) return;
       total += 1 + countDesc(c);
     });
     node._count = total;
