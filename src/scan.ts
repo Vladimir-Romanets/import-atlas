@@ -127,8 +127,14 @@ export function scan(entryFiles: string[], options: ScanOptions): ScanResult {
     };
   }
 
+  // An edge is recorded as soon as its target resolves, before that target is
+  // read — so breaking the walk on the cap leaves edges pointing at files that
+  // never became nodes. Drop them: everything downstream looks an endpoint up
+  // by id and expects a real node back.
+  const walkedEdges = edges.filter((edge) => nodes[edge.to] !== undefined);
+
   const fanIn: Record<string, number> = {};
-  for (const edge of edges) {
+  for (const edge of walkedEdges) {
     fanIn[edge.to] = (fanIn[edge.to] || 0) + 1;
   }
 
@@ -136,5 +142,5 @@ export function scan(entryFiles: string[], options: ScanOptions): ScanResult {
     warnings.push('No tsconfig.json found — path aliases (e.g. "@/*") will not resolve.');
   }
 
-  return { root, entries, nodes, edges, fanIn, warnings };
+  return { root, entries, nodes, edges: walkedEdges, fanIn, warnings };
 }

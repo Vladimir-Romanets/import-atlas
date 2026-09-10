@@ -48,7 +48,8 @@
     "typecheck:client": "tsc -p tsconfig.browser.json",
     "build": "pnpm run generate:assets && pnpm run typecheck:client && tsc -p tsconfig.json",
     "dev": "pnpm run generate:assets && tsc -p tsconfig.json --watch",
-    "typecheck": "pnpm run generate:assets && pnpm run typecheck:client && tsc -p tsconfig.json --noEmit"
+    "typecheck": "pnpm run generate:assets && pnpm run typecheck:client && tsc -p tsconfig.json --noEmit",
+    "test": "vitest run"
   },
   "dependencies": {
     "commander": "^12.1.0",
@@ -59,6 +60,7 @@
     "@semantic-release/git": "^11.0.1",
     "@types/node": "^20.14.9",
     "esbuild": "^0.28.2",
-    "semantic-release": "^25.0.9"
+    "semantic-release": "^25.0.9",
+    "vitest": "^5.0.0"
   }
 }

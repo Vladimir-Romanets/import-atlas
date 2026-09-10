@@ -15,5 +15,5 @@
     "resolveJsonModule": true
   },
   "include": ["src"],
-  "exclude": ["src/render/render.client.ts", "src/render/client"]
+  "exclude": ["src/render/render.client.ts", "src/render/client", "src/__tests__"]
 }
