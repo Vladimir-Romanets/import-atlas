@@ -42,7 +42,9 @@ export function buildLayout(
     node.x = depth * COL_W;
     nodes.push(node);
     if (parent) edges.push([parent, node]);
-    const expanded = !node.ref && node.children.length > 0 && !collapsed.has(node.renderId);
+    // A reference counts as expandable too, once its children have been
+    // copied in — it is only a leaf while nobody has opened it.
+    const expanded = node.children.length > 0 && !collapsed.has(node.renderId);
     if (expanded){
       // Centred on its children: the midpoint between the first one's row
       // and the last one's.

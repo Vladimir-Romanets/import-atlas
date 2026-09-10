@@ -1,4 +1,5 @@
 import { SVGNS, NODE_W, NODE_H } from './constants';
+import { materializeChildren } from './expand';
 import type { RenderNode } from './types';
 import type { Viewport } from './viewport';
 
@@ -59,15 +60,20 @@ export function createNavigation({ collapsed, byId, parentOf, render, svg, nodes
 
   const onNodeActivate = (node: RenderNode) => {
     showDetail(node);
-    if (node.ref){
-      jumpTo(node.ref);
-      return;
-    }
-    // `_count`, not `children.length`, is what svgTree.ts draws the
-    // chevron/badge from — toggling `collapsed` on a node that shows
-    // neither would be an invisible no-op click that still desyncs the
-    // Expand all/Collapse switch.
-    if (node._count > 0){
+    // A node standing for an occurrence expanded elsewhere gets that
+    // occurrence's children copied under it on first open, so it behaves
+    // like any other node from then on. Jumping to the full expansion is
+    // still offered, from the detail panel.
+    if (materializeChildren(node, byId, parentOf)){
+      // The click that fetched the children is also the click that opens
+      // them. Falling through to the toggle below would close the node the
+      // moment it gained something to show, costing a second click.
+      collapsed.delete(node.renderId);
+    } else if (node._count > 0){
+      // `_count`, not `children.length`, is what svgTree.ts draws the
+      // chevron/badge from — toggling `collapsed` on a node that shows
+      // neither would be an invisible no-op click that still desyncs the
+      // Expand all/Collapse switch.
       if (collapsed.has(node.renderId)) {
         collapsed.delete(node.renderId);
       } else {
