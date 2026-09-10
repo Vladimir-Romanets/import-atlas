@@ -54,7 +54,7 @@ export function createTreeRenderer({
     edgesG.appendChild(path);
   };
 
-  const renderNode = (node: RenderNode) => {
+  const renderNode = (node: RenderNode, index: number) => {
     const g = document.createElementNS(SVGNS, "g");
     const classes = ["node"];
     if (node.ref) classes.push("is-ref");
@@ -94,27 +94,39 @@ export function createTreeRenderer({
     g.appendChild(rect);
 
     const col = colorOf(node.layer);
-    const dot = document.createElementNS(SVGNS, "circle");
-    dot.setAttribute("class", "dot");
-    dot.style.setProperty("--dot-l", col[0]);
-    dot.style.setProperty("--dot-d", col[1]);
-    dot.setAttribute("cx", "12");
-    dot.setAttribute("cy", String(NODE_H / 2));
-    dot.setAttribute("r", "3.6");
-    g.appendChild(dot);
+    const marker = document.createElementNS(SVGNS, "path");
+    marker.setAttribute("class", "marker");
+    marker.style.setProperty("--dot-l", col[0]);
+    marker.style.setProperty("--dot-d", col[1]);
+    marker.setAttribute("d", "M 6,1 H 11 V 26 H 6 Q 1,26 1,21 V 6 Q 1,1 6,1 Z");
+    g.appendChild(marker);
+
+    // Safety net: even with shortLabel's width estimate, a label can still
+    // run wider than the box (unusual fonts, estimate drift). Clip it to
+    // the node's own bounds so it's cut off cleanly instead of spilling
+    // into neighboring nodes/icons.
+    const clipId = `label-clip-${index}`;
+    const clip = document.createElementNS(SVGNS, "clipPath");
+    clip.setAttribute("id", clipId);
+    const clipRect = document.createElementNS(SVGNS, "rect");
+    clipRect.setAttribute("width", String(NODE_W));
+    clipRect.setAttribute("height", String(NODE_H));
+    clip.appendChild(clipRect);
+    g.appendChild(clip);
 
     const text = document.createElementNS(SVGNS, "text");
     text.setAttribute("class", "label");
-    text.setAttribute("x", "24");
+    text.setAttribute("clip-path", `url(#${clipId})`);
+    text.setAttribute("x", "16");
     if (subText) {
       text.setAttribute("y", String(NODE_H / 2 - 1));
       const nameTspan = document.createElementNS(SVGNS, "tspan");
-      nameTspan.setAttribute("x", "24");
+      nameTspan.setAttribute("x", "16");
       nameTspan.textContent = shortLabel(importedAs);
       text.appendChild(nameTspan);
       const subTspan = document.createElementNS(SVGNS, "tspan");
       subTspan.setAttribute("class", "label-sub");
-      subTspan.setAttribute("x", "24");
+      subTspan.setAttribute("x", "16");
       subTspan.setAttribute("dy", "9");
       subTspan.textContent = shortLabel(subText);
       text.appendChild(subTspan);
@@ -253,7 +265,7 @@ export function createTreeRenderer({
     nodesG.innerHTML = "";
 
     visibleEdges.forEach(renderEdge);
-    visibleNodes.forEach(renderNode);
+    visibleNodes.forEach((node, i) => renderNode(node, i));
 
     if (focusedId) {
       nodesG.querySelector<SVGGElement>(`[data-id="${focusedId}"]`)?.focus();
