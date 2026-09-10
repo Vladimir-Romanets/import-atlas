@@ -1,3 +1,10 @@
+# [0.6.0](https://github.com/Vladimir-Romanets/import-atlas/compare/v0.5.0...v0.6.0) (2026-09-10)
+
+
+### Features
+
+* drop the unused-re-export render mode ([#15](https://github.com/Vladimir-Romanets/import-atlas/issues/15)) ([c2413d6](https://github.com/Vladimir-Romanets/import-atlas/commit/c2413d6ca6577b247300a288df9e4a47e962213f))
+
 # [0.5.0](https://github.com/Vladimir-Romanets/import-atlas/compare/v0.4.1...v0.5.0) (2026-09-10)
 
 
