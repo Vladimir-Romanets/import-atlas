@@ -1,5 +1,6 @@
 import * as fs from 'fs';
 import * as ts from 'typescript';
+import type { ExportFacts } from './types';
 
 function scriptKindFor(filePath: string): ts.ScriptKind {
   if (filePath.endsWith('.tsx')) return ts.ScriptKind.TSX;
@@ -88,24 +89,122 @@ function namesFromExportClause(
   return { source, exposed };
 }
 
-/**
- * Extracts every static `import ... from '...'`, `export ... from '...'`,
- * dynamic `import('...')` and `require('...')` module specifier from a file,
- * via the TypeScript AST (not regex) so it survives comments, strings, and
- * template literals that merely look like imports. Also records which named
- * bindings each statement references, so barrel-file expansion can tell
- * which re-exports were actually requested somewhere.
- */
-export function extractImportSpecifiers(filePath: string): ImportSpecifierInfo[] {
-  const source = fs.readFileSync(filePath, 'utf8');
-  const sourceFile = ts.createSourceFile(
-    filePath,
-    source,
-    ts.ScriptTarget.Latest,
-    true,
-    scriptKindFor(filePath)
-  );
+/** Flattens a binding name into the identifiers it introduces, so `export const { a, b } = x` counts as exporting both. */
+function collectBindingNames(name: ts.BindingName, out: string[]): void {
+  if (ts.isIdentifier(name)) {
+    out.push(name.text);
+    return;
+  }
+  for (const element of name.elements) {
+    if (ts.isOmittedExpression(element)) continue;
+    collectBindingNames(element.name, out);
+  }
+}
 
+function objectLiteralPropertyNames(literal: ts.ObjectLiteralExpression): string[] {
+  const names: string[] = [];
+  for (const property of literal.properties) {
+    if (property.name && ts.isIdentifier(property.name)) names.push(property.name.text);
+  }
+  return names;
+}
+
+/**
+ * Collects the names a file exports through its own declarations — see
+ * `ExportFacts`. Only top-level statements are examined, which is also the
+ * only place an export can legally appear.
+ */
+function collectExports(sourceFile: ts.SourceFile): ExportFacts {
+  const ownNames: string[] = [];
+  // Top-level `const X = { ... }` literals, kept in case the default export
+  // turns out to forward one of them (the `const Utils = {...}; export
+  // default Utils` aggregation pattern).
+  const objectLiterals: Record<string, string[]> = {};
+  let defaultExpression: ts.Expression | null = null;
+  let defaultLocalName: string | null = null;
+  let hasExportEquals = false;
+
+  for (const statement of sourceFile.statements) {
+    if (ts.isVariableStatement(statement)) {
+      for (const declaration of statement.declarationList.declarations) {
+        if (
+          ts.isIdentifier(declaration.name) &&
+          declaration.initializer &&
+          ts.isObjectLiteralExpression(declaration.initializer)
+        ) {
+          objectLiterals[declaration.name.text] = objectLiteralPropertyNames(declaration.initializer);
+        }
+      }
+    }
+
+    if (ts.isExportAssignment(statement)) {
+      if (statement.isExportEquals) {
+        hasExportEquals = true;
+        continue;
+      }
+      ownNames.push('default');
+      defaultExpression = statement.expression;
+      continue;
+    }
+
+    // `export { A, B as C };` with no module specifier exposes local
+    // bindings under their outward names. (With a specifier it's a
+    // re-export, i.e. an edge, and is left to `collectImports`.)
+    if (ts.isExportDeclaration(statement) && !statement.moduleSpecifier) {
+      const clause = statement.exportClause;
+      if (clause && ts.isNamedExports(clause)) {
+        for (const element of clause.elements) ownNames.push(element.name.text);
+      }
+      continue;
+    }
+
+    const modifiers = ts.canHaveModifiers(statement) ? ts.getModifiers(statement) : undefined;
+    if (!modifiers || !modifiers.some((m) => m.kind === ts.SyntaxKind.ExportKeyword)) continue;
+
+    if (modifiers.some((m) => m.kind === ts.SyntaxKind.DefaultKeyword)) {
+      // `export default function Foo(){}` exposes `default` and nothing
+      // else — `Foo` is a local binding, not a second named export.
+      ownNames.push('default');
+      if (
+        (ts.isFunctionDeclaration(statement) || ts.isClassDeclaration(statement)) &&
+        statement.name
+      ) {
+        defaultLocalName = statement.name.text;
+      }
+      continue;
+    }
+
+    if (ts.isVariableStatement(statement)) {
+      for (const declaration of statement.declarationList.declarations) {
+        collectBindingNames(declaration.name, ownNames);
+      }
+      continue;
+    }
+
+    // function / class / interface / type alias / enum / namespace.
+    const named = statement as ts.Statement & { name?: ts.Node };
+    if (named.name && ts.isIdentifier(named.name)) ownNames.push(named.name.text);
+  }
+
+  let defaultAggregateNames: string[] = [];
+  if (defaultExpression) {
+    if (ts.isIdentifier(defaultExpression)) {
+      defaultLocalName = defaultExpression.text;
+      defaultAggregateNames = objectLiterals[defaultExpression.text] ?? [];
+    } else if (ts.isObjectLiteralExpression(defaultExpression)) {
+      defaultAggregateNames = objectLiteralPropertyNames(defaultExpression);
+    }
+  }
+
+  return {
+    ownNames: [...new Set(ownNames)],
+    defaultAggregateNames,
+    defaultLocalName,
+    hasExportEquals,
+  };
+}
+
+function collectImports(sourceFile: ts.SourceFile): ImportSpecifierInfo[] {
   const specifiers: ImportSpecifierInfo[] = [];
 
   function visit(node: ts.Node): void {
@@ -154,4 +253,42 @@ export function extractImportSpecifiers(filePath: string): ImportSpecifierInfo[]
 
   visit(sourceFile);
   return specifiers;
+}
+
+function parseFile(filePath: string): ts.SourceFile {
+  const source = fs.readFileSync(filePath, 'utf8');
+  return ts.createSourceFile(
+    filePath,
+    source,
+    ts.ScriptTarget.Latest,
+    true,
+    scriptKindFor(filePath)
+  );
+}
+
+/** Everything one file says about its module boundary: what it asks of others, and what it offers them. */
+export interface ModuleFacts {
+  imports: ImportSpecifierInfo[];
+  exports: ExportFacts;
+}
+
+/**
+ * Reads a file's imports and exports in a single parse — the scan needs
+ * both, and parsing each file twice over a large project is pure waste.
+ */
+export function extractModuleFacts(filePath: string): ModuleFacts {
+  const sourceFile = parseFile(filePath);
+  return { imports: collectImports(sourceFile), exports: collectExports(sourceFile) };
+}
+
+/**
+ * Extracts every static `import ... from '...'`, `export ... from '...'`,
+ * dynamic `import('...')` and `require('...')` module specifier from a file,
+ * via the TypeScript AST (not regex) so it survives comments, strings, and
+ * template literals that merely look like imports. Also records which named
+ * bindings each statement references, so barrel-file expansion can tell
+ * which re-exports were actually requested somewhere.
+ */
+export function extractImportSpecifiers(filePath: string): ImportSpecifierInfo[] {
+  return collectImports(parseFile(filePath));
 }

@@ -1,9 +1,9 @@
 import * as fs from 'fs';
 import * as path from 'path';
 import { loadTsConfig } from './configLoader';
-import { extractImportSpecifiers, type ImportSpecifierInfo } from './parseImports';
+import { extractModuleFacts, type ImportSpecifierInfo } from './parseImports';
 import { resolveSpecifier } from './resolveModule';
-import type { Edge, FileNode, ScanResult } from './types';
+import type { Edge, ExportFacts, FileNode, ScanResult } from './types';
 
 export interface ScanOptions {
   /** Project root — relative paths in the report, and where to search for tsconfig.json. */
@@ -91,9 +91,14 @@ export function scan(entryFiles: string[], options: ScanOptions): ScanResult {
     const externalImports: string[] = [];
     const unresolvedImports: string[] = [];
     let specifiers: ImportSpecifierInfo[] = [];
+    // Stays null when the file was never parsed, so findings can tell "this
+    // file exports nothing" apart from "nobody looked".
+    let exports: ExportFacts | null = null;
     if (isParseable(current)) {
       try {
-        specifiers = extractImportSpecifiers(current);
+        const facts = extractModuleFacts(current);
+        specifiers = facts.imports;
+        exports = facts.exports;
       } catch (err) {
         warnings.push(`Could not parse ${id}: ${(err as Error).message}`);
         coverageGaps.push(`${id} could not be parsed, so its own imports are unknown`);
@@ -136,7 +141,8 @@ export function scan(entryFiles: string[], options: ScanOptions): ScanResult {
       label: labelOf(current),
       layer: layerOf(id),
       externalImports,
-      unresolvedImports
+      unresolvedImports,
+      exports
     };
   }
 

@@ -11,6 +11,7 @@ function file(id: string): FileNode {
     layer: id.split('/')[0],
     externalImports: [],
     unresolvedImports: [],
+    exports: null,
   };
 }
 

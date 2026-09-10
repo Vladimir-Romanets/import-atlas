@@ -1,4 +1,5 @@
 import type { ScanResult, TreeNode, RenderData } from "./types";
+import { computeFindings } from "./findings";
 import { CSS, BODY, SCRIPT } from "./render.generated";
 
 export interface RenderOptions {
@@ -56,6 +57,7 @@ export function renderHtml(
     topFanIn,
     warnings,
     coverageGaps: scanResult.coverageGaps,
+    findings: computeFindings(scanResult),
     forest,
     generatedAt: new Date().toISOString(),
   };
