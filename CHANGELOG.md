@@ -1,3 +1,10 @@
+# [0.7.0](https://github.com/Vladimir-Romanets/import-atlas/compare/v0.6.0...v0.7.0) (2026-09-10)
+
+
+### Features
+
+* narrow a barrel's children to what its importer asked for ([#16](https://github.com/Vladimir-Romanets/import-atlas/issues/16)) ([70d3b0a](https://github.com/Vladimir-Romanets/import-atlas/commit/70d3b0a730f123d0de61e745b2c8a44947bfa329))
+
 # [0.6.0](https://github.com/Vladimir-Romanets/import-atlas/compare/v0.5.0...v0.6.0) (2026-09-10)
 
 
