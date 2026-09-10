@@ -7,8 +7,8 @@ Scan a JavaScript/TypeScript project's local import graph from one or more entry
 - Parses each file's AST (via the TypeScript compiler API — not regex), so it correctly follows `import`, `export ... from`, dynamic `import()` and `require()`.
 - Resolves relative imports and `tsconfig.json` `paths` aliases (e.g. `@/*`) the same way TypeScript does, including `extends` chains.
 - Treats anything that isn't a local file (bare specifiers like `react`) as an external package: recorded on the importing file, never followed.
-- Builds one tree per entry point. A file imported from more than one place keeps a single canonical position — every other place it's imported from becomes a compact, dashed reference node that jumps to the canonical one on click, instead of duplicating its whole subtree.
-- Shows a barrel/index file's re-exports as its children in the tree — e.g. importing just `Button` from `components/button` still shows `Button`, `IconButton`, and `ButtonDropdown` if that's everything `components/button/index.ts` re-exports, since that's the file's real structure, not only what one importer happens to use.
+- Builds one tree per entry point. A file imported from more than one place keeps a single canonical position — every other place it's imported from becomes a compact, dashed reference node that jumps to the canonical one on click, instead of duplicating its whole subtree. A barrel is the one exception: it gets one expansion per distinct set of names asked of it, since that's what decides its children.
+- Shows a barrel/index file's re-exports as its children, narrowed to what the importer actually asked for — `import { Button } from 'components/button'` shows `Button` alone, not the twenty other components that barrel also re-exports. A file importing `IconButton` from the same barrel gets its own node showing that instead, so each node describes the path you're following rather than the barrel file's full contents.
 - Labels each node by the actual imported name — e.g. a node reached via `import { Button } from 'components/button'` is labeled "Button", even if that resolves through a barrel to a file that internally exports it as `default` — with the underlying file's own name shown in small text underneath, and the full path on hover.
 - Detects import cycles (flagged with ⚠ instead of being expanded forever).
 - Reads each file's own exports as well as its imports, and lists every export nothing in the scan ever asks for — see the Findings tab below.
@@ -188,7 +188,7 @@ source and how the graph viewer's client code is organized.
 
 ## Known limitations
 
-- A barrel is rendered as ONE shared subtree, however many files import it — that is the same canonical/ref dedup that keeps the tree from blowing up combinatorially. So a barrel shows everything it re-exports at every occurrence, not a version scoped to whichever specific path you are looking at.
+- Narrowing a barrel to what its importer asked for needs the request to be knowable. A barrel reached by a namespace import (`import * as X`), a dynamic `import()`, a `require()`, or forwarded on through an `export * from` shows every one of its re-exports, since nothing in the graph says which of them that reach actually touches.
 - JS/TS only — a CSS/SCSS/JSON/asset import (e.g. `./main.scss`) still shows up as a leaf node in the tree since it resolves to a real file on disk, it's just never parsed further for its own imports.
 - `paths` aliases only; package-level `exports` map remapping isn't resolved (external packages are never followed, so this rarely matters).
 - One HTML file per run; no incremental/watch mode yet.
