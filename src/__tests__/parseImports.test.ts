@@ -2,7 +2,7 @@ import * as fs from 'fs';
 import * as os from 'os';
 import * as path from 'path';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
-import { extractImportSpecifiers } from '../parseImports';
+import { extractImportSpecifiers, extractModuleFacts } from '../parseImports';
 
 let dir: string;
 
@@ -125,5 +125,93 @@ describe('extractImportSpecifiers', () => {
     expect(extractImportSpecifiers(file)).toEqual([
       { moduleSpecifier: './select', names: '*', exposedNames: '*', isReexport: false },
     ]);
+  });
+});
+
+/** Sorted so a test doesn't depend on declaration order. */
+const exportedNames = (file: string): string[] =>
+  [...extractModuleFacts(file).exports.ownNames].sort();
+
+describe('extractModuleFacts — exported names', () => {
+  it('collects every declaration form that carries an export modifier', () => {
+    const file = write(`
+      export const a = 1, b = 2;
+      export function fn() {}
+      export class Cls {}
+      export interface Iface {}
+      export type Alias = string;
+      export enum Enum { A }
+    `);
+    expect(exportedNames(file)).toEqual(['Alias', 'Cls', 'Enum', 'Iface', 'a', 'b', 'fn']);
+  });
+
+  it('ignores declarations that are not exported', () => {
+    const file = write(`const hidden = 1;\nfunction alsoHidden() {}\nexport const shown = 2;`);
+    expect(exportedNames(file)).toEqual(['shown']);
+  });
+
+  it('collects names out of a destructuring export', () => {
+    const file = write(`export const { a, b: renamed } = source; export const [first] = list;`);
+    expect(exportedNames(file)).toEqual(['a', 'first', 'renamed']);
+  });
+
+  it('collects the outward names of a local `export { ... }` statement', () => {
+    const file = write(`const A = 1, B = 2;\nexport { A, B as C };`);
+    expect(exportedNames(file)).toEqual(['A', 'C']);
+  });
+
+  it('leaves `export ... from` alone — a re-export is an edge, not an own export', () => {
+    const file = write(`export { Select } from './select';\nexport * from './other';`);
+    expect(exportedNames(file)).toEqual([]);
+  });
+
+  it('treats `export default function Foo(){}` as exporting only the default', () => {
+    // `Foo` is a local binding here, not a second named export — importing
+    // `{ Foo }` from this file would fail.
+    const file = write(`export default function Foo() {}`);
+    const { exports } = extractModuleFacts(file);
+    expect(exports.ownNames).toEqual(['default']);
+    expect(exports.defaultLocalName).toBe('Foo');
+  });
+
+  it('records the local name a plain `export default X` forwards', () => {
+    const file = write(`export const LoginPage = 1;\nexport default LoginPage;`);
+    const { exports } = extractModuleFacts(file);
+    expect(exports.ownNames.sort()).toEqual(['LoginPage', 'default']);
+    expect(exports.defaultLocalName).toBe('LoginPage');
+    expect(exports.defaultAggregateNames).toEqual([]);
+  });
+
+  it('records the properties of an object the default export aggregates', () => {
+    // Consumers reach these as `StringUtils.leftPad` — property access no
+    // import graph can see, so findings must know the names are in there.
+    const file = write(`
+      export function leftPad() {}
+      export function isBlank() {}
+      const StringUtils = { leftPad, isBlank, extra: leftPad };
+      export default StringUtils;
+    `);
+    const { exports } = extractModuleFacts(file);
+    expect(exports.defaultAggregateNames).toEqual(['leftPad', 'isBlank', 'extra']);
+    expect(exports.defaultLocalName).toBe('StringUtils');
+  });
+
+  it('records the properties of an object literal exported inline as default', () => {
+    const file = write(`function a() {}\nfunction b() {}\nexport default { a, b };`);
+    expect(extractModuleFacts(file).exports.defaultAggregateNames).toEqual(['a', 'b']);
+  });
+
+  it('flags `export =`, which replaces the module shape entirely', () => {
+    const file = write(`const api = {};\nexport = api;`);
+    const { exports } = extractModuleFacts(file);
+    expect(exports.hasExportEquals).toBe(true);
+    expect(exports.ownNames).toEqual([]);
+  });
+
+  it('returns both halves of the module boundary from one call', () => {
+    const file = write(`import { Select } from './select';\nexport const wrapped = Select;`);
+    const facts = extractModuleFacts(file);
+    expect(facts.imports).toHaveLength(1);
+    expect(facts.exports.ownNames).toEqual(['wrapped']);
   });
 });

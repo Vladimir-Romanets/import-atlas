@@ -73,16 +73,64 @@
       jump to where the file is fully expanded.
     </p>
   </aside>
-  <main class="canvas-wrap">
-    <svg id="canvas" aria-label="Import dependency tree">
-      <g id="viewport">
-        <g id="edges"></g>
-        <g id="nodes"></g>
-      </g>
-    </svg>
-    <div class="zoom-controls">
-      <button type="button" id="zoomIn" aria-label="Zoom in">+</button>
-      <button type="button" id="zoomOut" aria-label="Zoom out">&minus;</button>
+  <main class="main">
+    <div class="tabs" role="tablist" aria-label="View">
+      <button
+        type="button"
+        class="tab"
+        id="tabTree"
+        role="tab"
+        aria-selected="true"
+        aria-controls="panelTree"
+      >
+        Tree
+      </button>
+      <button
+        type="button"
+        class="tab"
+        id="tabFindings"
+        role="tab"
+        aria-selected="false"
+        aria-controls="panelFindings"
+      >
+        Findings <span class="tab-count" id="findingsCount">0</span>
+      </button>
+    </div>
+    <div
+      class="panel canvas-wrap"
+      id="panelTree"
+      role="tabpanel"
+      aria-labelledby="tabTree"
+    >
+      <svg id="canvas" aria-label="Import dependency tree">
+        <g id="viewport">
+          <g id="edges"></g>
+          <g id="nodes"></g>
+        </g>
+      </svg>
+      <div class="zoom-controls">
+        <button type="button" id="zoomIn" aria-label="Zoom in">+</button>
+        <button type="button" id="zoomOut" aria-label="Zoom out">&minus;</button>
+      </div>
+    </div>
+    <div
+      class="panel findings"
+      id="panelFindings"
+      role="tabpanel"
+      aria-labelledby="tabFindings"
+      hidden
+    >
+      <p class="f-summary" id="findingsSummary"></p>
+      <p class="f-caveat" id="findingsCaveat" hidden></p>
+      <input
+        id="findingsFilter"
+        type="text"
+        placeholder="filter by name or path…"
+        autocomplete="off"
+        aria-label="Filter findings"
+      />
+      <p class="f-empty" id="findingsNoMatches" hidden>No findings match the filter.</p>
+      <div id="findingsGroups"></div>
     </div>
   </main>
 </div>

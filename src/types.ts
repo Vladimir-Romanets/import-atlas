@@ -1,3 +1,39 @@
+/**
+ * What a file exports through its OWN declarations — the other half of the
+ * import graph. Edges say what every file *asks* for; this says what each
+ * file *offers*, and the difference between the two is an export nobody
+ * imports.
+ *
+ * `export ... from '...'` is deliberately absent here: a re-export is an
+ * edge, already carried by `Edge.exposedNames`, and is judged as one.
+ */
+export interface ExportFacts {
+  /** Names this file exports via its own declarations. `'default'` for a default export, whatever form it takes. */
+  ownNames: string[];
+  /**
+   * When the default export is an object literal gathering local bindings
+   * (`const Utils = { leftPad, isBlank }; export default Utils`), the
+   * property names it carries. Those bindings stay reachable to consumers
+   * as `Utils.leftPad` — property access on an imported binding, which an
+   * import graph cannot see. Their named exports therefore look unimported
+   * while the symbols are very much alive, so findings flag them only at
+   * reduced confidence.
+   */
+  defaultAggregateNames: string[];
+  /**
+   * Local name the default export forwards, when it is a plain identifier
+   * (`export default LoginPage`). Lets a named export that merely duplicates
+   * the default be told apart from a genuinely dead one.
+   */
+  defaultLocalName: string | null;
+  /**
+   * True for `export = ...` (TypeScript's CommonJS interop). The file's
+   * named exports can't be reasoned about through it, so findings skip the
+   * file entirely rather than guess.
+   */
+  hasExportEquals: boolean;
+}
+
 export interface FileNode {
   /** Stable id: POSIX-style path relative to the scan root. */
   id: string;
@@ -11,6 +47,8 @@ export interface FileNode {
   externalImports: string[];
   /** Specifiers that looked local/aliased but could not be resolved to a file on disk. */
   unresolvedImports: string[];
+  /** `null` when the file was never parsed — a non-JS/TS asset, or a file that wouldn't parse. Findings skip those rather than read an empty export list as "exports nothing". */
+  exports: ExportFacts | null;
 }
 
 export interface Edge {
@@ -46,6 +84,29 @@ export interface ScanResult {
   coverageGaps: string[];
 }
 
+/**
+ * How much to trust a finding. The import graph sees names crossing module
+ * boundaries and nothing else, so some exports look unimported for reasons
+ * that have nothing to do with being dead — see `Finding.reason`.
+ */
+export type FindingConfidence = 'high' | 'medium' | 'low';
+
+/** One export nobody in the scanned graph asks for, with the reasoning behind it. */
+export interface Finding {
+  /** `dead-export` for a name the file declares itself; `dead-reexport` for one it forwards with `export ... from`. */
+  kind: 'dead-export' | 'dead-reexport';
+  fileId: string;
+  relPath: string;
+  layer: string;
+  /** The exported name, as consumers would have to write it. */
+  name: string;
+  confidence: FindingConfidence;
+  /** Why this was flagged, and — below `high` — what could still keep it alive. */
+  reason: string;
+  /** What to do about it. */
+  recommendation: string;
+}
+
 export interface TreeNode {
   /** Unique id for this rendered occurrence (a file can appear more than once). */
   renderId: string;
@@ -79,6 +140,8 @@ export interface RenderData {
   warnings: string[];
   /** `ScanResult.coverageGaps` — non-empty disables the viewer's "Unused hidden" toggle, since nothing is flagged `unused` when the walk admits it missed edges. */
   coverageGaps: string[];
+  /** Exports nothing in the scan imports, for the viewer's Findings tab. Sorted most-trustworthy first. */
+  findings: Finding[];
   forest: TreeNode[];
   generatedAt: string;
 }
