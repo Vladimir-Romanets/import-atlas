@@ -1,3 +1,10 @@
+# [0.10.0](https://github.com/Vladimir-Romanets/import-atlas/compare/v0.9.0...v0.10.0) (2026-09-11)
+
+
+### Features
+
+* add circular and duplicate import detectors to Findings ([#19](https://github.com/Vladimir-Romanets/import-atlas/issues/19)) ([577255a](https://github.com/Vladimir-Romanets/import-atlas/commit/577255a5cd3cdb17a4466bbbeaa142eb8861f5b0)), closes [hi#confidence](https://github.com/hi/issues/confidence)
+
 # [0.9.0](https://github.com/Vladimir-Romanets/import-atlas/compare/v0.8.0...v0.9.0) (2026-09-11)
 
 
