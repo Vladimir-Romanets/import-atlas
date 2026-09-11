@@ -1,3 +1,10 @@
+# [0.9.0](https://github.com/Vladimir-Romanets/import-atlas/compare/v0.8.0...v0.9.0) (2026-09-11)
+
+
+### Features
+
+* add a help icon with context for each findings group ([#18](https://github.com/Vladimir-Romanets/import-atlas/issues/18)) ([dae27e4](https://github.com/Vladimir-Romanets/import-atlas/commit/dae27e4c46d8196a2f5d8340fe35759a99c906aa))
+
 # [0.8.0](https://github.com/Vladimir-Romanets/import-atlas/compare/v0.7.0...v0.8.0) (2026-09-11)
 
 
