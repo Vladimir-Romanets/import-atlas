@@ -1,3 +1,10 @@
+# [0.8.0](https://github.com/Vladimir-Romanets/import-atlas/compare/v0.7.0...v0.8.0) (2026-09-11)
+
+
+### Features
+
+* open a re-used node where it stands ([#17](https://github.com/Vladimir-Romanets/import-atlas/issues/17)) ([9895b7f](https://github.com/Vladimir-Romanets/import-atlas/commit/9895b7f30098a1007337170bb32caa2385e8524f))
+
 # [0.7.0](https://github.com/Vladimir-Romanets/import-atlas/compare/v0.6.0...v0.7.0) (2026-09-10)
 
 
