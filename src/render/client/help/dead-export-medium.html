@@ -1,0 +1,65 @@
+<h2>Potential Issues with Named Exports Duplicating an Imported Default</h2>
+<p>
+  This rule flags modules that expose one and the same symbol twice — once by name and once as the
+  default export — where every importer in the scan reaches it through the default. The duplication
+  adds noise to the codebase and obscures the dependency graph.
+</p>
+
+<h3>1. Code Redundancy &amp; Unused Exports</h3>
+<p>
+  <strong>Problem:</strong> The module declares a named export alongside a default export of the
+  same binding (<code>export function Foo</code> … <code>export default Foo</code>), but analysis
+  shows that consumers strictly import the symbol via its default export.
+</p>
+<p>
+  <strong>Consequence:</strong> The named export exists solely as dead code in the module
+  declaration, creating unnecessary API surface area and cluttering IDE auto-complete suggestions.
+</p>
+
+<h3>2. Public Interface Ambiguity</h3>
+<p>
+  <strong>Problem:</strong> Providing multiple export mechanisms for the same underlying entity
+  introduces inconsistency across the codebase.
+</p>
+<p>
+  <strong>Consequence:</strong> Developers working on different parts of the project may import
+  the same utility differently (some using default imports, others using named imports),
+  violating consistency and making global refactoring harder.
+</p>
+
+<h3>3. The Two Exports Are Not the Same Binding</h3>
+<p>
+  <strong>Problem:</strong> <code>export { Foo }</code> exposes a live binding, while
+  <code>export default Foo</code> exports the <em>value</em> <code>Foo</code> held at the moment
+  the statement runs. The two look interchangeable but are not.
+</p>
+<p>
+  <strong>Consequence:</strong> If the module ever reassigns <code>Foo</code> after initialization,
+  named importers observe the new value and default importers keep the old one — a divergence that
+  is easy to introduce and hard to diagnose. Keeping a single export removes the hazard outright.
+</p>
+
+<h3>4. Before Removing the Named Export</h3>
+<p>
+  Only the modules this scan walked count as consumers. A named export can still be imported by a
+  test, a script, or a package consumer that no entry point reaches — and by anything the scan was
+  told to skip with <code>--exclude</code>. Confirm the name is unused outside the graph before
+  deleting it.
+</p>
+
+<h3>5. Recommendations</h3>
+<p>
+  <strong>Resolution Strategy:</strong> It is recommended to keep only the export pattern that
+  matches your project's established code style guidelines:
+</p>
+<ul>
+  <li>
+    <strong>If your project style prefers Named Exports:</strong> Migrate all consuming files to
+    use named imports (e.g., <code>import { symbol } from './module'</code>) and drop the default
+    export.
+  </li>
+  <li>
+    <strong>If your project style prefers Default Exports:</strong> Remove the unused named export
+    from the module to keep the public interface clean and unambiguous.
+  </li>
+</ul>

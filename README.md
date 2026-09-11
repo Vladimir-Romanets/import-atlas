@@ -31,7 +31,7 @@ A node for a file that is expanded elsewhere opens where it stands, filling in o
 Every export nothing in the scanned graph asks for, filterable by name or path and grouped by what to do about it — the advice sits on the group, so it's stated once rather than repeated on every row. Groups are ordered by how much the import graph alone can justify the claim:
 
 - **Unimported exports** — no file in the scan imports the name. Drop the `export` keyword if the symbol is only used inside its own file, or remove the symbol entirely.
-- **Unimported barrel re-exports** — a barrel forwards the name with `export ... from`, but nothing imports it from there.
+- **Unimported re-exports** — a file forwards the name with `export ... from`, but nothing imports it from there. Barrels are where these collect, but any module that re-exports a name is checked the same way.
 - **Named exports duplicating an imported default** — the file exports a symbol both by name and as its default, and only the default is ever imported, so the named export is redundant.
 - **Names reached through a default object** — the file gathers local bindings into an object it default-exports (`const Utils = { leftPad }; export default Utils`) and that default IS imported. Consumers most likely reach the name as `Utils.leftPad`, a property access no import graph can follow, so treat these as "check before removing", not as dead code.
 
