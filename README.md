@@ -7,7 +7,7 @@ Scan a JavaScript/TypeScript project's local import graph from one or more entry
 - Parses each file's AST (via the TypeScript compiler API — not regex), so it correctly follows `import`, `export ... from`, dynamic `import()` and `require()`.
 - Resolves relative imports and `tsconfig.json` `paths` aliases (e.g. `@/*`) the same way TypeScript does, including `extends` chains.
 - Treats anything that isn't a local file (bare specifiers like `react`) as an external package: recorded on the importing file, never followed.
-- Builds one tree per entry point. A file imported from more than one place keeps a single canonical position — every other place it's imported from becomes a compact, dashed reference node that jumps to the canonical one on click, instead of duplicating its whole subtree. A barrel is the one exception: it gets one expansion per distinct set of names asked of it, since that's what decides its children.
+- Builds one tree per entry point. A file imported from more than one place keeps a single canonical position — every other place it's imported from starts out as a compact node holding no children, rather than duplicating the whole subtree up front. It is a full node all the same: open it and it fills in from that one expansion, a level per click, so a shared file's imports can be followed along the path you're actually reading. A barrel is the one exception to sharing an expansion: it gets one per distinct set of names asked of it, since that's what decides its children.
 - Shows a barrel/index file's re-exports as its children, narrowed to what the importer actually asked for — `import { Button } from 'components/button'` shows `Button` alone, not the twenty other components that barrel also re-exports. A file importing `IconButton` from the same barrel gets its own node showing that instead, so each node describes the path you're following rather than the barrel file's full contents.
 - Labels each node by the actual imported name — e.g. a node reached via `import { Button } from 'components/button'` is labeled "Button", even if that resolves through a barrel to a file that internally exports it as `default` — with the underlying file's own name shown in small text underneath, and the full path on hover.
 - Detects import cycles (flagged with ⚠ instead of being expanded forever).
@@ -22,7 +22,9 @@ The generated HTML is a single self-contained file with two tabs: **Tree** and *
 
 Drag to pan, scroll (or the +/− buttons) to zoom, click a node to expand or collapse it, and use "Find a file" in the sidebar to jump straight to any file by name or path. The "View" section carries one toggle:
 
-- **Expand all / Collapse** — flips between fully expanding every node and the default view (only the first level or so open).
+- **Expand all / Collapse** — flips between fully expanding every node and the default view (only the first level or so open). It opens what the tree already holds; a re-used node is filled in only when you open it, so this never pulls a shared file's whole subtree into every place it's used.
+
+A node for a file that is expanded elsewhere opens where it stands, filling in one level from that expansion — and its own children behave the same way, so the next click goes a level deeper. Following `Button` down two different pages therefore shows each page's own path, rather than sending you off to a single shared copy. Which occurrence holds the expansion the others copy from is an implementation detail of the payload, and the viewer draws them all alike.
 
 ### Findings
 
@@ -103,7 +105,7 @@ or, add scripts at package.json
 
 **import-atlas** only follows literal `import` / `require` / `export ... from` statements — it has no notion of "this file is a page" unless something actually imports it. Frameworks that route by file-system convention (Next.js App Router and Pages Router, Nuxt, SvelteKit, Remix, Astro, …) load most of the app that way: nothing ever `import`s `app/page.tsx` or `pages/about.tsx`, the framework's own router does. Point import-atlas at a single root file — say, a Next.js `app/layout.tsx` — and you'll only see what that file itself imports (typically a couple of providers and `globals.css`), not the rest of the application.
 
-**Fix: pass every route file as its own entry point.** Both `graph` and `scan` accept multiple entries — one tree gets drawn per entry, and any file shared between them collapses into a single node with dashed references (see "What it does" above), so passing many entries doesn't duplicate the shared parts of the app.
+**Fix: pass every route file as its own entry point.** Both `graph` and `scan` accept multiple entries — one tree gets drawn per entry, and any file shared between them is expanded once and opened on demand elsewhere (see "What it does" above), so passing many entries doesn't duplicate the shared parts of the app up front.
 
 ### Worked example: a small Next.js App Router project
 
@@ -150,7 +152,7 @@ Nothing connects `(dashboard)/layout.tsx` to `overview/page.tsx` — that
 nesting is the router's doing, not an import, so it's not part of the graph.
 What you do get for free: anything imported from more than one of those 8
 files — a shared component, a fetch helper, a Zustand store — collapses into
-one canonical node with dashed reference nodes everywhere else it's used, so
+one full expansion, opened on demand everywhere else it is used, so
 the cross-cutting shared code still reads as a single coherent map even
 though the 8 route trees themselves are independent.
 

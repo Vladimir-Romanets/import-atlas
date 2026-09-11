@@ -32,7 +32,7 @@ renderSidebar(DATA, colorOf);
 renderFindings(DATA);
 
 const { byId: nodeById, parentOf } = buildIndex(forest);
-countDescendants(forest);
+countDescendants(forest, nodeById);
 const { collapsed, defaultCollapse } = createCollapsedState(forest);
 
 const svg = byId<SVGSVGElement>("canvas");

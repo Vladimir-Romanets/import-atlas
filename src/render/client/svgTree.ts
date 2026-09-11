@@ -55,7 +55,6 @@ export function createTreeRenderer({
   const renderNode = (node: RenderNode, index: number) => {
     const g = document.createElementNS(SVGNS, "g");
     const classes = ["node"];
-    if (node.ref) classes.push("is-ref");
     if (node.depth === 0) classes.push("entry");
     if (node.renderId === activeId) classes.push("active");
     g.setAttribute("class", classes.join(" "));
@@ -136,12 +135,15 @@ export function createTreeRenderer({
 
     const rightX = NODE_W - 10;
     const hasVisibleChildren = node._count > 0;
-    const showBadge =
-      !node.ref && hasVisibleChildren && collapsed.has(node.renderId);
+    // Mirrors buildLayout's own test: a node reads as open only when there
+    // are children actually laid out beneath it, which a reference nobody
+    // has opened yet does not have.
+    const isOpen = node.children.length > 0 && !collapsed.has(node.renderId);
+    const showBadge = hasVisibleChildren && !isOpen;
     const badgeWidth = showBadge ? 8 + String(node._count).length * 6.5 : 0;
     let glyphOffset =
-      (node.ref || hasVisibleChildren ? 14 : 0) +
-      (showBadge ? badgeWidth + 4 : 0);
+      (hasVisibleChildren ? 14 : 0) + (showBadge ? badgeWidth + 4 : 0);
+
     if (node.warn) {
       const w = document.createElementNS(SVGNS, "text");
       w.setAttribute("class", "warn-glyph");
@@ -164,21 +166,13 @@ export function createTreeRenderer({
       glyphOffset += 14;
     }
 
-    if (node.ref) {
-      const r = document.createElementNS(SVGNS, "text");
-      r.setAttribute("class", "ref-glyph");
-      r.setAttribute("x", String(rightX));
-      r.setAttribute("y", String(NODE_H / 2 + 4));
-      r.setAttribute("text-anchor", "end");
-      r.textContent = "↗";
-      g.appendChild(r);
-    } else if (hasVisibleChildren) {
+    if (hasVisibleChildren) {
       const chev = document.createElementNS(SVGNS, "text");
       chev.setAttribute("class", "chev");
       chev.setAttribute("x", String(rightX));
       chev.setAttribute("y", String(NODE_H / 2 + 3));
       chev.setAttribute("text-anchor", "end");
-      chev.textContent = collapsed.has(node.renderId) ? "▸" : "▾";
+      chev.textContent = isOpen ? "▾" : "▸";
       g.appendChild(chev);
 
       if (showBadge) {
@@ -213,17 +207,13 @@ export function createTreeRenderer({
       // `render()`'s "restore whatever had focus" capture always has
       // something correct to find, on every browser, mouse or keyboard.
       g.focus();
-      // A ref click navigates on to its canonical target (see
-      // navigation.ts's jumpTo) — mark THAT as active, not the ref stub
-      // itself, so the outline lands where the view (and pulse ring)
-      // actually ends up.
-      activeId = node.ref ?? node.renderId;
+      activeId = node.renderId;
       onActivate(node);
     });
     g.addEventListener("keydown", (e) => {
       if (e.key === "Enter" || e.key === " ") {
         e.preventDefault();
-        activeId = node.ref ?? node.renderId;
+        activeId = node.renderId;
         onActivate(node);
       }
     });
