@@ -157,3 +157,20 @@ export function computeFindings(scanResult: ScanResult): Finding[] {
   );
   return findings;
 }
+
+/**
+ * Orders findings from several detectors into the one list the viewer
+ * renders: most trustworthy first, since the group a reader can act on
+ * without checking anything should not sit below one that needs a second
+ * opinion. Each detector's own row order survives within a confidence
+ * level — `Array.prototype.sort` is stable — so a detector stays free to
+ * decide how its own rows read.
+ *
+ * Sorting the merged list is what makes this hold. Concatenating
+ * already-sorted lists does not: appending a `high` detector after one that
+ * emits `high` through `low` leaves the appended group below every hedged
+ * row from the first.
+ */
+export function sortFindings(findings: Finding[]): Finding[] {
+  return [...findings].sort((a, b) => RANK[a.confidence] - RANK[b.confidence]);
+}

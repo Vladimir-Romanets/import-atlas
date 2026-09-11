@@ -1,0 +1,62 @@
+<h2>Technical Analysis: Duplicate Imports</h2>
+<p>
+  This rule flags a file that pulls from the same target module through more than one
+  import/export statement — a value import plus a separate type-only import, two re-export lines
+  from the same file, or simply the same specifier written twice. It is computed once over the
+  whole scanned graph, independent of the Tree tab's per-node <code>💡</code> hint, which only
+  covers the pairs visible from wherever a tree node happens to sit.
+</p>
+<p>
+  Only statements that could actually be merged are counted. An import written inside a function —
+  <code>lazy(() =&gt; import('./Page'))</code>, a <code>require()</code> in a branch — is a
+  deliberately separate way of reaching the module, so it is left out of the count even when the
+  same file also imports that module statically. A <code>require()</code> or
+  <code>await import()</code> at module scope is counted: it runs on load like any other import
+  line.
+</p>
+
+<h3>1. Redundant Statements</h3>
+<p>
+  <strong>Problem:</strong> Two or more statements doing the same job — naming the same source
+  file — usually happened because the second import was added without noticing the first, or
+  because a refactor left one behind.
+</p>
+<p>
+  <strong>Consequence:</strong> Readers scanning the top of the file see more import lines than
+  there are actual dependencies, making the file's real surface area of dependencies harder to
+  judge at a glance.
+</p>
+
+<h3>2. Common Legitimate Cause: Type-Only Imports</h3>
+<p>
+  <strong>Problem:</strong> A value import (<code>import { Button } from './Button'</code>)
+  alongside a type-only import (<code>import type { ButtonProps } from './Button'</code>) counts
+  as two statements pulling from the same file.
+</p>
+<p>
+  <strong>Consequence:</strong> This is not a bug — it is valid, common TypeScript — but it can
+  usually be written as one combined statement (<code>import { Button, type ButtonProps } from
+  './Button'</code>) without changing behavior.
+</p>
+
+<h3>3. Recommendations</h3>
+<p>
+  <strong>Resolution Strategy:</strong> Combine the statements named in the row into one:
+</p>
+<ul>
+  <li>
+    <strong>Two import statements:</strong> merge the named bindings into a single
+    <code>import { ... } from '...'</code> line (adding <code>type</code> before an individual
+    name, or importing them separately with one combined <code>import</code> and one combined
+    <code>import type</code>, whichever the project's lint rules expect).
+  </li>
+  <li>
+    <strong>Two re-export lines:</strong> merge the forwarded names into a single
+    <code>export { ... } from '...'</code> line.
+  </li>
+  <li>
+    <strong>Not this:</strong> do not fold a lazy <code>import()</code> into a static import line
+    to clear a row — that would load the module eagerly and undo the code splitting. Rows like
+    that are not reported in the first place, for exactly this reason.
+  </li>
+</ul>

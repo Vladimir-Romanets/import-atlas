@@ -60,6 +60,15 @@ export interface Edge {
   exposedNames: string[] | '*';
   /** True for `export ... from '...'` (a re-export) as opposed to a plain `import ... from '...'` (direct usage). */
   isReexport: boolean;
+  /**
+   * True when the import sits inside a function and so cannot run while the
+   * importing module evaluates its own top level — `lazy(() =>
+   * import('./Page'))`, a `require()` in a branch. The dependency is real,
+   * so the edge stays in the graph and in the tree; but it carries none of
+   * the load-order coupling a module-scope import does, which is why the
+   * cycle and duplicate detectors leave these edges out.
+   */
+  isDeferred: boolean;
 }
 
 export interface ScanResult {
@@ -91,17 +100,47 @@ export interface ScanResult {
  */
 export type FindingConfidence = 'high' | 'medium' | 'low';
 
-/** One export nobody in the scanned graph asks for, with the reasoning behind it. */
+/**
+ * Something worth a reader's attention in the Findings tab. `dead-export`/
+ * `dead-reexport` are per-export findings (see field docs below for their
+ * shape); `circular-import`/`dupe-import` are whole-graph structural
+ * findings, where `name`/`relPath` carry a file count / path chain instead
+ * of an export name.
+ */
 export interface Finding {
-  /** `dead-export` for a name the file declares itself; `dead-reexport` for one it forwards with `export ... from`. */
-  kind: 'dead-export' | 'dead-reexport';
+  /**
+   * `dead-export` for a name the file declares itself; `dead-reexport` for
+   * one it forwards with `export ... from`; `circular-import` for a file
+   * (or group of files) that imports itself, directly or through a chain;
+   * `dupe-import` for the same target module pulled in via more than one
+   * import/export statement from the same file.
+   */
+  kind: 'dead-export' | 'dead-reexport' | 'circular-import' | 'dupe-import';
   fileId: string;
+  /**
+   * Every file the finding covers, when that is more than `fileId` alone —
+   * a multi-file cycle's whole strongly connected component, of which
+   * `fileId` is only the anchor the row is filed under. Omitted when the
+   * finding is about `fileId` and nothing else, so counting affected files
+   * means unioning `fileIds ?? [fileId]`.
+   */
+  fileIds?: string[];
   relPath: string;
   layer: string;
-  /** The exported name, as consumers would have to write it. */
+  /**
+   * For `dead-export`/`dead-reexport`: the exported name, as consumers
+   * would have to write it. For `circular-import`: a short file-count label
+   * (`"3 files"`, or `"self-import"`). For `dupe-import`: the imported
+   * module's label plus how many times it was imported (`"Button (×2)"`).
+   */
   name: string;
   confidence: FindingConfidence;
-  /** Why this was flagged, and — below `high` — what could still keep it alive. */
+  /**
+   * Why this was flagged. For `dead-export`/`dead-reexport`, below `high`,
+   * also what could still keep it alive. For `circular-import`, spells out
+   * that a multi-file cycle's path is one representative walk through it,
+   * not necessarily every file or the shortest loop.
+   */
   reason: string;
   /** What to do about it. */
   recommendation: string;
@@ -138,7 +177,13 @@ export interface RenderData {
   warnings: string[];
   /** `ScanResult.coverageGaps` — non-empty puts a caveat above the Findings list, since a file the walk never read could be the one importing a name listed there. */
   coverageGaps: string[];
-  /** Exports nothing in the scan imports, for the viewer's Findings tab. Sorted most-trustworthy first. */
+  /**
+   * For the viewer's Findings tab, in three fixed blocks: dead-export/
+   * dead-reexport findings first (most-trustworthy first within that
+   * block), then circular-import findings, then dupe-import findings —
+   * each block internally sorted and always rendered as its own group
+   * section(s).
+   */
   findings: Finding[];
   forest: TreeNode[];
   generatedAt: string;

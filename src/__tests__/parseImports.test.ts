@@ -24,7 +24,7 @@ describe('extractImportSpecifiers', () => {
   it('extracts named imports', () => {
     const file = write(`import { Select } from './select';`);
     expect(extractImportSpecifiers(file)).toEqual([
-      { moduleSpecifier: './select', names: ['Select'], exposedNames: ['Select'], isReexport: false },
+      { moduleSpecifier: './select', names: ['Select'], exposedNames: ['Select'], isReexport: false, isDeferred: false },
     ]);
   });
 
@@ -35,7 +35,7 @@ describe('extractImportSpecifiers', () => {
     // this file (and the viewer's node label) would recognize it as.
     const file = write(`import { Select as MySelect } from './select';`);
     expect(extractImportSpecifiers(file)).toEqual([
-      { moduleSpecifier: './select', names: ['Select'], exposedNames: ['MySelect'], isReexport: false },
+      { moduleSpecifier: './select', names: ['Select'], exposedNames: ['MySelect'], isReexport: false, isDeferred: false },
     ]);
   });
 
@@ -46,7 +46,7 @@ describe('extractImportSpecifiers', () => {
     // viewer labels the node 'Select', not the internal 'default' sentinel.
     const file = write(`import Select from './select';`);
     expect(extractImportSpecifiers(file)).toEqual([
-      { moduleSpecifier: './select', names: ['default'], exposedNames: ['Select'], isReexport: false },
+      { moduleSpecifier: './select', names: ['default'], exposedNames: ['Select'], isReexport: false, isDeferred: false },
     ]);
   });
 
@@ -64,28 +64,28 @@ describe('extractImportSpecifiers', () => {
     // sentinel used only for matching against LoginPage.tsx's own export).
     const file = write(`import AAA from './LoginPage';`);
     expect(extractImportSpecifiers(file)).toEqual([
-      { moduleSpecifier: './LoginPage', names: ['default'], exposedNames: ['AAA'], isReexport: false },
+      { moduleSpecifier: './LoginPage', names: ['default'], exposedNames: ['AAA'], isReexport: false, isDeferred: false },
     ]);
   });
 
   it('marks namespace imports as wildcard', () => {
     const file = write(`import * as Select from './select';`);
     expect(extractImportSpecifiers(file)).toEqual([
-      { moduleSpecifier: './select', names: '*', exposedNames: '*', isReexport: false },
+      { moduleSpecifier: './select', names: '*', exposedNames: '*', isReexport: false, isDeferred: false },
     ]);
   });
 
   it('marks a bare side-effect import as wildcard', () => {
     const file = write(`import './select';`);
     expect(extractImportSpecifiers(file)).toEqual([
-      { moduleSpecifier: './select', names: '*', exposedNames: '*', isReexport: false },
+      { moduleSpecifier: './select', names: '*', exposedNames: '*', isReexport: false, isDeferred: false },
     ]);
   });
 
   it('extracts named re-exports and marks them as re-exports', () => {
     const file = write(`export { Select } from './select';`);
     expect(extractImportSpecifiers(file)).toEqual([
-      { moduleSpecifier: './select', names: ['Select'], exposedNames: ['Select'], isReexport: true },
+      { moduleSpecifier: './select', names: ['Select'], exposedNames: ['Select'], isReexport: true, isDeferred: false },
     ]);
   });
 
@@ -95,36 +95,88 @@ describe('extractImportSpecifiers', () => {
     // from *this* file — the two must not be conflated.
     const file = write(`export { A as Alpha } from './a';`);
     expect(extractImportSpecifiers(file)).toEqual([
-      { moduleSpecifier: './a', names: ['A'], exposedNames: ['Alpha'], isReexport: true },
+      { moduleSpecifier: './a', names: ['A'], exposedNames: ['Alpha'], isReexport: true, isDeferred: false },
     ]);
   });
 
   it('marks `export * from` as wildcard on both names and exposedNames', () => {
     const file = write(`export * from './select';`);
     expect(extractImportSpecifiers(file)).toEqual([
-      { moduleSpecifier: './select', names: '*', exposedNames: '*', isReexport: true },
+      { moduleSpecifier: './select', names: '*', exposedNames: '*', isReexport: true, isDeferred: false },
     ]);
   });
 
   it('marks `export * as NS from` as wildcard on both names and exposedNames', () => {
     const file = write(`export * as Select from './select';`);
     expect(extractImportSpecifiers(file)).toEqual([
-      { moduleSpecifier: './select', names: '*', exposedNames: '*', isReexport: true },
+      { moduleSpecifier: './select', names: '*', exposedNames: '*', isReexport: true, isDeferred: false },
     ]);
   });
 
   it('marks dynamic import() as wildcard and not a re-export', () => {
     const file = write(`const mod = import('./select');`);
     expect(extractImportSpecifiers(file)).toEqual([
-      { moduleSpecifier: './select', names: '*', exposedNames: '*', isReexport: false },
+      { moduleSpecifier: './select', names: '*', exposedNames: '*', isReexport: false, isDeferred: false },
     ]);
   });
 
   it('marks require() as wildcard and not a re-export', () => {
     const file = write(`const mod = require('./select');`);
     expect(extractImportSpecifiers(file)).toEqual([
-      { moduleSpecifier: './select', names: '*', exposedNames: '*', isReexport: false },
+      { moduleSpecifier: './select', names: '*', exposedNames: '*', isReexport: false, isDeferred: false },
     ]);
+  });
+
+  // What makes an import deferred is not the syntax but the position: inside
+  // a function it runs on call, at module scope it runs on load. Both the
+  // cycle and the duplicate rule read `isDeferred`, not the call kind.
+  describe('isDeferred', () => {
+    const deferredFlags = (source: string): boolean[] =>
+      extractImportSpecifiers(write(source)).map((spec) => spec.isDeferred);
+
+    it('marks import() inside an arrow function as deferred', () => {
+      expect(deferredFlags(`const Page = lazy(() => import('./Page'));`)).toEqual([true]);
+    });
+
+    it('marks import() inside an async function body as deferred', () => {
+      expect(deferredFlags(`async function load() { return await import('./Page'); }`)).toEqual([true]);
+    });
+
+    it('marks require() inside a branch of a function as deferred', () => {
+      expect(deferredFlags(`function f(flag) { if (flag) { return require('./slow'); } }`)).toEqual([true]);
+    });
+
+    it('marks require() inside a class method as deferred', () => {
+      expect(deferredFlags(`class C { load() { return require('./slow'); } }`)).toEqual([true]);
+    });
+
+    it('does NOT mark a top-level require() as deferred — it runs on load', () => {
+      expect(deferredFlags(`const mod = require('./select');`)).toEqual([false]);
+    });
+
+    it('does NOT mark a top-level awaited import() as deferred — it blocks evaluation', () => {
+      expect(deferredFlags(`const mod = await import('./select');`)).toEqual([false]);
+    });
+
+    it('never marks a plain import or re-export declaration as deferred', () => {
+      expect(
+        deferredFlags(`import { A } from './a';\nexport { B } from './b';\nexport * from './c';`),
+      ).toEqual([false, false, false]);
+    });
+
+    it('keeps the flag per statement when one file has both kinds', () => {
+      const source = [
+        `import type { Props } from './Page';`,
+        `const Page = lazy(() => import('./Page'));`,
+      ].join('\n');
+      expect(deferredFlags(source)).toEqual([false, true]);
+    });
+
+    it('marks an import() nested two functions deep as deferred', () => {
+      expect(
+        deferredFlags(`function outer() { return () => import('./deep'); }`),
+      ).toEqual([true]);
+    });
   });
 });
 

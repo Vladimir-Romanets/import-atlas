@@ -80,7 +80,7 @@ describe('buildForest — hints and cycles', () => {
     const b = findChild(forest, 'app/b.ts');
     const backEdge = findChild(b.children, 'app/a.ts');
     expect(backEdge.ref).not.toBeNull();
-    expect(backEdge.warn).toBe('circular import');
+    expect(backEdge.warn).toBe('circular import — see Findings tab for the full cycle');
   });
 });
 
@@ -397,7 +397,7 @@ describe('buildForest — a barrel shows what its importer asked for', () => {
     const barrel = findChild(buildForest(scan), 'ui/index.ts');
     const backEdge = findChild(findChild(barrel.children, 'ui/Button.ts').children, 'ui/index.ts');
 
-    expect(backEdge.warn).toBe('circular import');
+    expect(backEdge.warn).toBe('circular import — see Findings tab for the full cycle');
     expect(backEdge.ref).toBe(barrel.renderId);
   });
 });

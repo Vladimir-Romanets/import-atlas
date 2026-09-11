@@ -5,15 +5,18 @@ import { HELP_HTML } from './helpContent.generated';
 
 /**
  * Findings are grouped by kind AND confidence, not by confidence alone: the
- * two `high` kinds call for different fixes (drop an `export` keyword vs.
- * delete a re-export line), and the group header is where the advice is
- * printed once instead of on all 500 rows.
+ * four `high` kinds call for different fixes (drop an `export` keyword vs.
+ * delete a re-export line vs. break a cycle vs. consolidate an import), and
+ * the group header is where the advice is printed once instead of on all
+ * 500 rows.
  */
 const GROUP_LABELS: Record<string, string> = {
   'dead-export-high': 'Unimported exports',
   'dead-export-medium': 'Named exports duplicating an imported default',
   'dead-export-low': 'Names reached through a default object',
   'dead-reexport-high': 'Unimported re-exports',
+  'circular-import-high': 'Circular imports',
+  'dupe-import-high': 'Duplicate imports',
 };
 
 interface Group {
@@ -26,8 +29,10 @@ interface Group {
 function groupFindings(findings: Finding[]): Group[] {
   const order: string[] = [];
   const byKey: Record<string, Group> = {};
-  // `findings` arrives sorted (most trustworthy first), so first-seen order
-  // is already the order to render groups in.
+  // `findings` arrives sorted most trustworthy first — across every detector,
+  // not just within one — so first-seen order is already the order to render
+  // groups in. See `sortFindings`, which is what makes that true of the
+  // merged list.
   for (const finding of findings) {
     const key = `${finding.kind}-${finding.confidence}`;
     if (!byKey[key]) {
@@ -107,10 +112,17 @@ export function renderFindings(data: RenderData): void {
   const findings = data.findings;
   byId('findingsCount').textContent = String(findings.length);
 
-  const fileCount = new Set(findings.map((f) => f.fileId)).size;
+  // A cycle row is filed under one anchor but implicates its whole
+  // component, so counting `fileId` alone would report two eight-file
+  // cycles as touching two files.
+  const files = new Set<string>();
+  for (const finding of findings) {
+    for (const id of finding.fileIds ?? [finding.fileId]) files.add(id);
+  }
+  const fileCount = files.size;
   byId('findingsSummary').textContent = findings.length
-    ? `${findings.length} export${findings.length > 1 ? 's' : ''} across ${fileCount} file${fileCount > 1 ? 's' : ''} that nothing in the scan imports.`
-    : 'Nothing in the scan exports a name it never gets asked for.';
+    ? `${findings.length} finding${findings.length > 1 ? 's' : ''} across ${fileCount} file${fileCount > 1 ? 's' : ''}.`
+    : 'Nothing to flag: no unimported exports, circular imports, or duplicate imports found.';
 
   // Unlike the tree's node pruning, the list still runs on a graph with
   // holes in it — but a reader weighing a row deserves to know one of the

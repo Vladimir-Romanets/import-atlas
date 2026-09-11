@@ -1,3 +1,4 @@
+import { edgeKey } from "./edgeKey";
 import type { ScanResult, TreeNode } from "./types";
 
 function summarizeExternals(externalImports: string[]): string {
@@ -51,7 +52,9 @@ type Request = string[] | '*';
  * everywhere else (`ref` naming the renderId of that one expansion),
  * because expanding every occurrence in full would blow the tree up
  * combinatorially. A back-edge to a file still on the current path becomes
- * a reference flagged as a circular import.
+ * a reference flagged as a circular import (the Findings tab has the full,
+ * whole-graph cycle list — this is only the first back-edge this one DFS
+ * path happens to hit).
  *
  * Barrels are the exception to "expanded once". What a barrel's children
  * ARE depends on what its importer asked for: `import { Button } from
@@ -64,9 +67,9 @@ type Request = string[] | '*';
  */
 export function buildForest(scanResult: ScanResult): TreeNode[] {
   const childrenOf: Record<string, string[]> = {};
-  // Keyed `${from} ${to}`. What the edge exposes onward (the viewer's node
-  // label, and what a barrel offers its own consumers) and what it requests
-  // of the target (which becomes that target's own request context).
+  // Keyed by `edgeKey(from, to)`. What the edge exposes onward (the viewer's
+  // node label, and what a barrel offers its own consumers) and what it
+  // requests of the target (which becomes that target's own request context).
   const edgeExposes: Record<string, Request> = {};
   const edgeRequests: Record<string, Request> = {};
   // A pair linked by at least one plain `import` is unconditional usage by
@@ -78,7 +81,7 @@ export function buildForest(scanResult: ScanResult): TreeNode[] {
 
   for (const edge of scanResult.edges) {
     (childrenOf[edge.from] ||= []).push(edge.to);
-    const key = `${edge.from} ${edge.to}`;
+    const key = edgeKey(edge.from, edge.to);
     edgeExposes[key] = unionNames(edgeExposes[key], edge.exposedNames);
     edgeRequests[key] = unionNames(edgeRequests[key], edge.names);
     if (edge.isReexport) isBarrel[edge.from] = true;
@@ -105,7 +108,7 @@ export function buildForest(scanResult: ScanResult): TreeNode[] {
    */
   function requestReaches(fileId: string, childId: string, request: Request): boolean {
     if (!isBarrel[fileId] || request === '*') return true;
-    const key = `${fileId} ${childId}`;
+    const key = edgeKey(fileId, childId);
     if (hasPlainImportEdge[key]) return true;
     const exposed = edgeExposes[key];
     if (exposed === '*') return true;
@@ -132,7 +135,10 @@ export function buildForest(scanResult: ScanResult): TreeNode[] {
     parentId: string | null = null,
   ): TreeNode {
     const file = scanResult.nodes[fileId];
-    const key = parentId !== null ? `${parentId} ${fileId}` : "";
+    // A root has no incoming edge to read a label off, so nothing was asked
+    // of it by name.
+    const exposes =
+      parentId !== null ? edgeExposes[edgeKey(parentId, fileId)] : undefined;
     return {
       renderId,
       fileId,
@@ -143,7 +149,7 @@ export function buildForest(scanResult: ScanResult): TreeNode[] {
       warn,
       hint,
       ref,
-      importedAs: parentId !== null ? (edgeExposes[key] ?? '*') : '*',
+      importedAs: exposes ?? '*',
       fanIn: scanResult.fanIn[fileId] || 0,
       children: [],
     };
@@ -196,14 +202,21 @@ export function buildForest(scanResult: ScanResult): TreeNode[] {
       added.add(childId);
       if (!requestReaches(fileId, childId, request)) continue;
 
-      const childRequest = edgeRequests[`${fileId} ${childId}`] ?? '*';
+      const childRequest = edgeRequests[edgeKey(fileId, childId)] ?? '*';
 
       // Closing a loop: point back at the occurrence still being expanded
       // rather than descending into it again.
       const openKey = openKeyOf.get(childId);
       if (openKey !== undefined) {
         node.children.push(
-          makeNode(childId, nextRenderId(), canonicalRenderId[openKey], "circular import", "", fileId),
+          makeNode(
+            childId,
+            nextRenderId(),
+            canonicalRenderId[openKey],
+            "circular import — see Findings tab for the full cycle",
+            "",
+            fileId,
+          ),
         );
         continue;
       }

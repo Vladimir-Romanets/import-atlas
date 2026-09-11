@@ -1,0 +1,100 @@
+<h2>Technical Analysis: Circular Imports</h2>
+<p>
+  This rule flags groups of files that import each other in a loop, computed once over the whole
+  scanned graph (every file the walk reached, not just the ones under a given entry point). Each
+  row is one strongly connected component — a set of files where every member can reach every
+  other member by following imports — reported as a single representative path through it. A
+  component of more than two files does not always have one simple loop that visits every member;
+  the path shown is one real cycle within the component, not necessarily the shortest one or a
+  tour of every file in it.
+</p>
+<p>
+  Only imports that run while a module is evaluating are counted. An import written inside a
+  function — <code>lazy(() =&gt; import('./Page'))</code>, a <code>require()</code> in a branch —
+  runs on call, long after every module in the loop has finished loading, so a loop that closes
+  only through one of those is not reported. The dependency is real and still drawn in the Tree
+  tab; what is absent is the load-order coupling this rule is about. A <code>require()</code> or
+  <code>await import()</code> at module scope <em>is</em> counted — those block evaluation exactly
+  like a plain <code>import</code>.
+</p>
+
+<h3>1. Not the Same as the Tree's ⚠ Warning</h3>
+<p>
+  <strong>Difference:</strong> The Tree tab marks a node <code>⚠ circular import</code> the first
+  time a depth-first walk from one entry point revisits a file still open on its current path.
+  That catches only the loops (and only the first back-edge) visible from wherever you happened to
+  click. This list is independent of any entry point or walk order — it is every cycle the graph
+  actually contains.
+</p>
+<p>
+  <strong>Consequence:</strong> A cycle can appear here without ever showing a warning on the
+  tree (if no entry point's walk order happens to hit its back-edge), and the tree's warning
+  always corresponds to some cycle listed here.
+</p>
+
+<h3>2. Fragile Load Order &amp; Partial Modules</h3>
+<p>
+  <strong>Problem:</strong> When module A imports module B and B imports A (directly, or through
+  a chain of other files), one of them is still mid-evaluation when the other reads from it.
+</p>
+<p>
+  <strong>Consequence:</strong> Depending on which file loads first, a binding pulled from the
+  still-evaluating module can be <code>undefined</code> — a bug that reproduces only under
+  specific import orders, making it disproportionately hard to track down compared to how it was
+  introduced.
+</p>
+
+<h3>3. Bundler &amp; Tree-Shaking Friction</h3>
+<p>
+  <strong>Problem:</strong> Bundlers have to break cycles at build time by choosing an evaluation
+  order, and can't always prove a cycle is side-effect-free.
+</p>
+<p>
+  <strong>Consequence:</strong> Code inside a cycle is more likely to be bundled together and
+  evaluated eagerly, even when only a small piece of it is actually used, working against tree
+  shaking.
+</p>
+
+<h3>4. Reading the Path</h3>
+<p>
+  <strong>Problem:</strong> The path column reads like <code>a.ts → b.ts → c.ts → a.ts</code> —
+  each arrow is a real import edge in the scan, and the chain closes back on its starting file.
+</p>
+<ul>
+  <li>
+    <strong>Two-file cycles:</strong> the path shown is the whole cycle — two files can only be
+    strongly connected one way.
+  </li>
+  <li>
+    <strong>Three files or more:</strong> the <code>name</code> column's file count can be larger
+    than the number of files in the shown path — the remaining files are still part of the same
+    strongly connected component, just not on this particular representative walk. A three-file
+    group whose path lists only two files is the common case: the third reaches the other two and
+    is reached by them, without sitting on the loop the walk closed on first.
+  </li>
+</ul>
+
+<h3>5. Recommendations</h3>
+<p>
+  <strong>Resolution Strategy:</strong> Pick whichever keeps the direction of the dependency
+  honest:
+</p>
+<ul>
+  <li>
+    <strong>Extract the shared piece:</strong> if both files need something from each other, move
+    that shared code (a type, a constant, a small utility) into a third module both sides import
+    from, so the dependency only flows one way.
+  </li>
+  <li>
+    <strong>Break one direction:</strong> if one side's dependency on the other is incidental
+    (used in one rarely-hit branch, say), move the import inside the function that needs it —
+    <code>const { helper } = await import('./helper')</code> — so it runs on call rather than on
+    load. That clears the row: an import inside a function is no longer part of the evaluation
+    loop. Moving the call but leaving it at module scope does not.
+  </li>
+  <li>
+    <strong>Self-import:</strong> a file that imports itself, directly or through a re-export
+    chain, usually means a barrel re-exports something the file underneath it also pulls back in —
+    import directly from the underlying file instead of through the barrel.
+  </li>
+</ul>

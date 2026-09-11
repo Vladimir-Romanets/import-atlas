@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { computeFindings } from '../findings';
-import type { Edge, ExportFacts, FileNode, ScanResult } from '../types';
+import { computeFindings, sortFindings } from '../findings';
+import type { Edge, ExportFacts, FileNode, Finding, ScanResult } from '../types';
 
 function facts(partial: Partial<ExportFacts> = {}): ExportFacts {
   return {
@@ -291,5 +291,68 @@ describe('computeFindings — barrel re-exports', () => {
       ['the --max-files cap (10) stopped the walk with 3 file(s) still unread'],
     );
     expect(names(computeFindings(scan))).toEqual(['isBlank']);
+  });
+});
+
+describe('sortFindings — the order the viewer renders groups in', () => {
+  const at = (kind: Finding['kind'], confidence: Finding['confidence'], name: string): Finding => ({
+    kind,
+    fileId: `${name}.ts`,
+    relPath: `${name}.ts`,
+    layer: 'src',
+    name,
+    confidence,
+    reason: '',
+    recommendation: '',
+  });
+
+  const groupsOf = (findings: Finding[]): string[] => {
+    const seen: string[] = [];
+    for (const f of findings) {
+      const key = `${f.kind}-${f.confidence}`;
+      if (!seen.includes(key)) seen.push(key);
+    }
+    return seen;
+  };
+
+  it('lifts a high-confidence detector above another detector\'s hedged rows', () => {
+    // The regression this guards: computeFindings emits high through low, so
+    // plain concatenation buried the two always-high detectors appended after
+    // it beneath every medium and low row.
+    const merged = [
+      at('dead-export', 'high', 'a'),
+      at('dead-export', 'medium', 'b'),
+      at('dead-export', 'low', 'c'),
+      at('circular-import', 'high', 'd'),
+      at('dupe-import', 'high', 'e'),
+    ];
+    expect(groupsOf(sortFindings(merged))).toEqual([
+      'dead-export-high',
+      'circular-import-high',
+      'dupe-import-high',
+      'dead-export-medium',
+      'dead-export-low',
+    ]);
+  });
+
+  it('keeps each detector\'s own row order inside one confidence level', () => {
+    const merged = [
+      at('dead-export', 'high', 'z'),
+      at('dead-export', 'high', 'a'),
+      at('circular-import', 'high', 'm'),
+    ];
+    // Not re-sorted by name: a detector decides how its own rows read.
+    expect(sortFindings(merged).map((f) => f.name)).toEqual(['z', 'a', 'm']);
+  });
+
+  it('does not mutate or drop anything', () => {
+    const merged = [at('dupe-import', 'high', 'a'), at('dead-export', 'low', 'b')];
+    const before = merged.map((f) => f.name);
+    expect(sortFindings(merged)).toHaveLength(2);
+    expect(merged.map((f) => f.name)).toEqual(before);
+  });
+
+  it('is a no-op on an empty list', () => {
+    expect(sortFindings([])).toEqual([]);
   });
 });
