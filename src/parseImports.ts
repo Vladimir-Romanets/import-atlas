@@ -32,6 +32,16 @@ export interface ImportSpecifierInfo {
   exposedNames: string[] | '*';
   /** True for `export ... from '...'` (a re-export, forwarding a name onward to this file's own consumers) as opposed to a plain `import ... from '...'` (direct, unconditional usage by this file). Only re-export edges are ever candidates for the "unused" barrel-filtering view — a plain import is proof of real usage regardless of what name the importing file is itself known by elsewhere. */
   isReexport: boolean;
+  /**
+   * True when the statement sits inside a function, so it cannot run while
+   * the importing module is evaluating its own top level — `React.lazy(() =>
+   * import('./Page'))`, or a `require()` in a rarely-hit branch. The
+   * dependency is real and stays in the graph; what's absent is the
+   * load-order coupling, which is why the cycle and duplicate detectors skip
+   * these. A top-level `require()` or `await import()` is NOT deferred: it
+   * runs during evaluation like a plain import, with the same hazards.
+   */
+  isDeferred: boolean;
 }
 
 /**
@@ -207,7 +217,16 @@ function collectExports(sourceFile: ts.SourceFile): ExportFacts {
 function collectImports(sourceFile: ts.SourceFile): ImportSpecifierInfo[] {
   const specifiers: ImportSpecifierInfo[] = [];
 
-  function visit(node: ts.Node): void {
+  /**
+   * `inFunction` is what separates a lazy import from an eager one: not the
+   * syntax used, but whether the call can run while this module is still
+   * evaluating. An `import()` or `require()` under a function body runs on
+   * call; either one at module scope runs on load, exactly like a plain
+   * `import` declaration. (An `import()` at module scope that nobody awaits
+   * is the one case counted as eager without being so — it errs toward
+   * reporting a cycle rather than hiding one.)
+   */
+  function visit(node: ts.Node, inFunction: boolean): void {
     if (
       ts.isImportDeclaration(node) &&
       node.moduleSpecifier &&
@@ -218,7 +237,8 @@ function collectImports(sourceFile: ts.SourceFile): ImportSpecifierInfo[] {
         moduleSpecifier: node.moduleSpecifier.text,
         names: importNames,
         exposedNames: importLocalNames,
-        isReexport: false
+        isReexport: false,
+        isDeferred: false
       });
     } else if (
       ts.isExportDeclaration(node) &&
@@ -230,7 +250,8 @@ function collectImports(sourceFile: ts.SourceFile): ImportSpecifierInfo[] {
         moduleSpecifier: node.moduleSpecifier.text,
         names: sourceNames,
         exposedNames,
-        isReexport: true
+        isReexport: true,
+        isDeferred: false
       });
     } else if (
       ts.isCallExpression(node) &&
@@ -238,7 +259,7 @@ function collectImports(sourceFile: ts.SourceFile): ImportSpecifierInfo[] {
       node.arguments[0] &&
       ts.isStringLiteral(node.arguments[0])
     ) {
-      specifiers.push({ moduleSpecifier: (node.arguments[0] as ts.StringLiteral).text, names: '*', exposedNames: '*', isReexport: false });
+      specifiers.push({ moduleSpecifier: (node.arguments[0] as ts.StringLiteral).text, names: '*', exposedNames: '*', isReexport: false, isDeferred: inFunction });
     } else if (
       ts.isCallExpression(node) &&
       ts.isIdentifier(node.expression) &&
@@ -246,12 +267,13 @@ function collectImports(sourceFile: ts.SourceFile): ImportSpecifierInfo[] {
       node.arguments[0] &&
       ts.isStringLiteral(node.arguments[0])
     ) {
-      specifiers.push({ moduleSpecifier: (node.arguments[0] as ts.StringLiteral).text, names: '*', exposedNames: '*', isReexport: false });
+      specifiers.push({ moduleSpecifier: (node.arguments[0] as ts.StringLiteral).text, names: '*', exposedNames: '*', isReexport: false, isDeferred: inFunction });
     }
-    ts.forEachChild(node, visit);
+    const childrenInFunction = inFunction || ts.isFunctionLike(node);
+    ts.forEachChild(node, (child) => visit(child, childrenInFunction));
   }
 
-  visit(sourceFile);
+  visit(sourceFile, false);
   return specifiers;
 }
 

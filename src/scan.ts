@@ -125,7 +125,8 @@ export function scan(entryFiles: string[], options: ScanOptions): ScanResult {
         to: childId,
         names: spec.names,
         exposedNames: spec.exposedNames,
-        isReexport: spec.isReexport
+        isReexport: spec.isReexport,
+        isDeferred: spec.isDeferred
       });
 
       if (!seen.has(resolved)) {

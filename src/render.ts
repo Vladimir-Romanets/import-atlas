@@ -1,5 +1,7 @@
 import type { ScanResult, TreeNode, RenderData } from "./types";
-import { computeFindings } from "./findings";
+import { computeFindings, sortFindings } from "./findings";
+import { computeCircularImports } from "./circularImports";
+import { computeDupeImports } from "./dupeImports";
 import { CSS, BODY, SCRIPT } from "./render.generated";
 
 export interface RenderOptions {
@@ -47,7 +49,11 @@ export function renderHtml(
     topFanIn,
     warnings: scanResult.warnings,
     coverageGaps: scanResult.coverageGaps,
-    findings: computeFindings(scanResult),
+    findings: sortFindings([
+      ...computeFindings(scanResult),
+      ...computeCircularImports(scanResult),
+      ...computeDupeImports(scanResult),
+    ]),
     forest,
     generatedAt: new Date().toISOString(),
   };

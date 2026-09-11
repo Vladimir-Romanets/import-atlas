@@ -3,6 +3,8 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
 import { computeFindings } from '../findings';
+import { computeCircularImports } from '../circularImports';
+import { computeDupeImports } from '../dupeImports';
 import type { Edge, ExportFacts, FileNode, Finding, ScanResult } from '../types';
 
 /**
@@ -35,10 +37,12 @@ const groupKey = (finding: Finding): string => `${finding.kind}-${finding.confid
  * it cover the new group too.
  */
 const DOCUMENTED_GROUPS = [
+  'circular-import-high',
   'dead-export-high',
   'dead-export-low',
   'dead-export-medium',
   'dead-reexport-high',
+  'dupe-import-high',
 ];
 
 function facts(partial: Partial<ExportFacts> = {}): ExportFacts {
@@ -76,8 +80,9 @@ function edge(
 /**
  * One scan that trips every group at once: an export nobody asks for (high), a
  * barrel forwarding a name nobody asks it for (high), a name duplicating the
- * imported default (medium), and names carried by an imported default object
- * (low).
+ * imported default (medium), names carried by an imported default object
+ * (low), a pair of files that import each other in a loop, and a pair linked
+ * by two separate import statements.
  */
 function scanCoveringEveryGroup(): ScanResult {
   const files: Record<string, ExportFacts | null> = {
@@ -92,14 +97,21 @@ function scanCoveringEveryGroup(): ScanResult {
     'ui/index.ts': facts(),
     'ui/Button.ts': facts({ ownNames: ['Button'] }),
     'ui/IconButton.ts': facts({ ownNames: ['IconButton'] }),
+    'cycle/a.ts': facts(),
+    'cycle/b.ts': facts(),
   };
   const edges: Edge[] = [
+    edge('app/entry.ts', 'utils/strings.ts', ['leftPad']),
+    // Two statements pulling `leftPad` from the same file — trips dupe-import.
     edge('app/entry.ts', 'utils/strings.ts', ['leftPad']),
     edge('app/entry.ts', 'page/LoginPage.ts', ['default']),
     edge('app/entry.ts', 'utils/aggregate.ts', ['default']),
     edge('app/entry.ts', 'ui/index.ts', ['Button']),
     edge('ui/index.ts', 'ui/Button.ts', ['Button'], { isReexport: true }),
     edge('ui/index.ts', 'ui/IconButton.ts', ['IconButton'], { isReexport: true }),
+    // Mutual import — trips circular-import.
+    edge('cycle/a.ts', 'cycle/b.ts', ['b']),
+    edge('cycle/b.ts', 'cycle/a.ts', ['a']),
   ];
 
   const nodes: Record<string, FileNode> = {};
@@ -110,7 +122,11 @@ function scanCoveringEveryGroup(): ScanResult {
 }
 
 const emittedGroups = (): string[] => [
-  ...new Set(computeFindings(scanCoveringEveryGroup()).map(groupKey)),
+  ...new Set([
+    ...computeFindings(scanCoveringEveryGroup()).map(groupKey),
+    ...computeCircularImports(scanCoveringEveryGroup()).map(groupKey),
+    ...computeDupeImports(scanCoveringEveryGroup()).map(groupKey),
+  ]),
 ].sort();
 
 const helpSlugs = (): string[] =>
