@@ -1,0 +1,124 @@
+<h2>Technical Analysis: Unimported Exports</h2>
+<p>
+  This rule flags exported symbols (functions, variables, types, or classes) that no file
+  <em>in this scan</em> imports. The import graph is the only evidence behind the claim, so read
+  the caveats in section 4 before deleting anything.
+</p>
+
+<h3>1. Unnecessary Public API Surface</h3>
+<p>
+  <strong>Problem:</strong> Exporting symbols that are only consumed locally within the defining
+  file needlessly exposes them as part of the module's public interface.
+</p>
+<p>
+  <strong>Consequence:</strong> It clutters IDE auto-complete menus and creates a false impression
+  that the symbol is a shared dependency across the application.
+</p>
+
+<h3>2. Dead Code Accumulation</h3>
+<p>
+  <strong>Problem:</strong> Symbols that are neither imported externally nor called locally
+  represent unused dead code.
+</p>
+<p>
+  <strong>Consequence:</strong> Unused code adds cognitive load during code reviews and carries
+  maintenance overhead without offering any runtime value. It rarely costs bundle size — an unused
+  named export of an ES module is normally tree-shaken away — so the cost lands on the people
+  reading the source, not on the shipped output.
+</p>
+
+<h3>3. Misleading Static Analysis</h3>
+<p>
+  <strong>Problem:</strong> Static analyzers and linters evaluate export keywords differently than
+  internal declarations. ESLint's <code>no-unused-vars</code>, for instance, never reports an
+  exported binding: as far as the rule is concerned, the module system is its consumer.
+</p>
+<p>
+  <strong>Consequence:</strong> An <code>export</code> keyword suppresses the one warning that
+  would have told you the symbol is abandoned, leaving dead logic hidden in plain sight.
+</p>
+
+<h3>4. What the Import Graph Cannot See</h3>
+<p>
+  <strong>Problem:</strong> This list is built from the modules the scan actually walked, starting
+  at its entry points. A name can be alive for reasons no import edge records.
+</p>
+<p><strong>Check these before removing a symbol:</strong></p>
+<ul>
+  <li>
+    <strong>Public package API:</strong> if a library's <code>index.ts</code> was not passed as an
+    entry point, every name it exports looks unimported here while real consumers live outside the
+    repository. This is the single most common false positive.
+  </li>
+  <li>
+    <strong>Files outside the walk:</strong> tests, scripts, or apps that no entry point reaches
+    are never read, so what they import cannot be credited. Files dropped by <code>--exclude</code>
+    are omitted the same way, deliberately and without a warning.
+  </li>
+  <li>
+    <strong>Access the graph can't follow:</strong> names reached through a namespace import,
+    <code>require()</code>, a dynamic <code>import()</code>, a DI container, or a string-keyed
+    registry. (Where the scan detects such an import it credits the whole module, so those files
+    are skipped entirely — but a lookup built at runtime leaves no edge at all.)
+  </li>
+</ul>
+<p>
+  <strong>Consequence:</strong> Treat a row as a question to answer, not a verdict. If the viewer
+  shows a coverage warning above the list, at least one importer went unread and the odds of a
+  false positive rise accordingly.
+</p>
+
+<h3>5. Recommendations</h3>
+<p>
+  <strong>Resolution Strategy:</strong> Refactor the symbol based on its actual usage and your
+  project's code style requirements:
+</p>
+<ul>
+  <li>
+    <strong>If the symbol is used only inside its own file:</strong> Remove the
+    <code>export</code> keyword (convert it to a local const, function, or type) to keep the
+    module's public interface clean and encapsulated.
+  </li>
+  <li>
+    <strong>If the symbol is completely unused:</strong> Delete the symbol declaration entirely to
+    eliminate dead code.
+  </li>
+  <li>
+    <strong>If the name shown is <code>default</code>:</strong> the file has a default export
+    nothing imports. Either drop <code>export default</code> and keep the declaration local, or
+    remove the declaration altogether — whichever matches how the file uses it.
+  </li>
+</ul>
+
+<h3>Comparison: Internal vs. Exported Local Symbols</h3>
+<table>
+  <thead>
+    <tr>
+      <th>Metric / Aspect</th>
+      <th>Unimported Export Present</th>
+      <th>Local Symbol / Deleted Dead Code</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>Module Encapsulation</td>
+      <td>❌ Weak (leaks internal implementation)</td>
+      <td>✅ Strong (strict public interface)</td>
+    </tr>
+    <tr>
+      <td>IDE Auto-Complete</td>
+      <td>❌ Cluttered with internal helpers</td>
+      <td>✅ Clean and accurate suggestions</td>
+    </tr>
+    <tr>
+      <td>Linter Detection</td>
+      <td>❌ Bypasses no-unused-vars rules</td>
+      <td>✅ Full static analysis coverage</td>
+    </tr>
+    <tr>
+      <td>Maintenance Overhead</td>
+      <td>❌ High (misleading dependency signal)</td>
+      <td>✅ Low (clear scope and purpose)</td>
+    </tr>
+  </tbody>
+</table>

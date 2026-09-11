@@ -1,0 +1,112 @@
+<h2>Technical Analysis: Unimported Re-exports</h2>
+<p>
+  This rule flags <code>export … from</code> statements that forward a name nothing in the scan ever
+  imports from the forwarding file. Barrel files (<code>index.ts</code>, <code>index.js</code>) are
+  where these collect, but the check is not restricted to them — any module that re-exports a name
+  no consumer asks it for is reported. Wildcard lines (<code>export * from './x'</code>) are never
+  flagged: they expose an unknowable set of names, so the scan credits the whole target module
+  instead of guessing.
+</p>
+
+<h3>1. Unnecessary Module Graph Complexity</h3>
+<p>
+  <strong>Problem:</strong> Barrel files aggregate and re-export symbols from multiple underlying
+  files. Unused re-exports needlessly inflate the static module dependency graph.
+</p>
+<p>
+  <strong>Consequence:</strong> Build tools and static analyzers are forced to parse, resolve, and
+  maintain unused dependency paths that serve no active purpose.
+</p>
+
+<h3>2. Impaired Tree Shaking &amp; Side-Effect Risk</h3>
+<p>
+  <strong>Problem:</strong> Importing even a single item from a barrel file often causes bundlers
+  to evaluate all re-exported modules if side-effects cannot be strictly ruled out.
+</p>
+<p>
+  <strong>Consequence:</strong> Unused code and modules are inadvertently bundled into production,
+  increasing the overall bundle size.
+</p>
+
+<h3>3. Degraded Tooling &amp; Compiler Performance</h3>
+<p>
+  <strong>Problem:</strong> Large barrel files with redundant re-exports force IDEs, TypeScript
+  language servers, and build tools to process unnecessary export entries.
+</p>
+<p>
+  <strong>Consequence:</strong> Developer experience deteriorates due to slower auto-complete
+  suggestions, delayed type-checking, and longer compilation or HMR (Hot Module Replacement)
+  times.
+</p>
+
+<h3>4. Before Removing the Line</h3>
+<p>
+  <strong>Problem:</strong> "Nothing imports it" means nothing among the modules this scan walked,
+  starting at its entry points.
+</p>
+<ul>
+  <li>
+    <strong>A package's public barrel:</strong> if the library's <code>index.ts</code> was not
+    passed as an entry point, every name it forwards looks unimported while the real consumers are
+    outside the repository. Check this first.
+  </li>
+  <li>
+    <strong>Unwalked or excluded files:</strong> tests, scripts, and apps no entry point reaches
+    are never read, and <code>--exclude</code> removes files silently by design — what they import
+    through the barrel cannot be credited here.
+  </li>
+</ul>
+
+<h3>5. Recommendations</h3>
+<p>
+  <strong>Resolution Strategy:</strong> Align barrel exports with your team's established code
+  style guidelines and architecture requirements:
+</p>
+<ul>
+  <li>
+    <strong>If your project style encourages Barrel Files:</strong> Remove the unused re-export
+    line (<code>export { symbol } from './module'</code>) from the barrel. The underlying source
+    file remains fully accessible through its direct path whenever needed. This is the fix for the
+    row you clicked through from.
+  </li>
+  <li>
+    <strong>If your project style prefers Direct File Imports:</strong> Retire the barrel as a
+    whole and enforce direct module paths (e.g.
+    <code>import { symbol } from './components/Button'</code>) to keep module boundaries clean and
+    explicit. Note this is a larger refactor than the finding calls for — every consumer that still
+    imports through the barrel has to be migrated first.
+  </li>
+</ul>
+
+<h3>Comparison: Clean vs. Bloated Barrel Exports</h3>
+<table>
+  <thead>
+    <tr>
+      <th>Metric / Aspect</th>
+      <th>Unused Barrel Re-exports Present</th>
+      <th>Clean Barrel / Direct Imports</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>Module Graph Size</td>
+      <td>❌ Inflated (includes unneeded nodes)</td>
+      <td>✅ Minimal (only active code)</td>
+    </tr>
+    <tr>
+      <td>Tree Shaking Reliability</td>
+      <td>❌ Vulnerable to side-effects</td>
+      <td>✅ Highly predictable</td>
+    </tr>
+    <tr>
+      <td>TypeScript / IDE Speed</td>
+      <td>❌ Slower auto-complete &amp; indexing</td>
+      <td>✅ Fast &amp; responsive</td>
+    </tr>
+    <tr>
+      <td>Public API Clarity</td>
+      <td>❌ Cluttered API surface</td>
+      <td>✅ Explicit &amp; intentional</td>
+    </tr>
+  </tbody>
+</table>

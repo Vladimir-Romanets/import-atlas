@@ -1,5 +1,7 @@
 import type { Finding, RenderData } from '../../types';
 import { byId } from './dom';
+import { initHelpModal, showHelp } from './findingsHelpModal';
+import { HELP_HTML } from './helpContent.generated';
 
 /**
  * Findings are grouped by kind AND confidence, not by confidence alone: the
@@ -8,13 +10,14 @@ import { byId } from './dom';
  * printed once instead of on all 500 rows.
  */
 const GROUP_LABELS: Record<string, string> = {
-  'dead-export high': 'Unimported exports',
-  'dead-export medium': 'Named exports duplicating an imported default',
-  'dead-export low': 'Names reached through a default object',
-  'dead-reexport high': 'Unimported barrel re-exports',
+  'dead-export-high': 'Unimported exports',
+  'dead-export-medium': 'Named exports duplicating an imported default',
+  'dead-export-low': 'Names reached through a default object',
+  'dead-reexport-high': 'Unimported re-exports',
 };
 
 interface Group {
+  key: string;
   label: string;
   recommendation: string;
   items: Finding[];
@@ -26,9 +29,10 @@ function groupFindings(findings: Finding[]): Group[] {
   // `findings` arrives sorted (most trustworthy first), so first-seen order
   // is already the order to render groups in.
   for (const finding of findings) {
-    const key = `${finding.kind} ${finding.confidence}`;
+    const key = `${finding.kind}-${finding.confidence}`;
     if (!byKey[key]) {
       byKey[key] = {
+        key,
         label: GROUP_LABELS[key] ?? key,
         recommendation: finding.recommendation,
         items: [],
@@ -50,6 +54,20 @@ function renderGroup(group: Group): { section: HTMLElement; rows: { el: HTMLElem
   count.className = 'f-count';
   count.textContent = String(group.items.length);
   heading.appendChild(count);
+
+  // group.key ("dead-export-low") doubles as its help file's slug
+  // (src/render/client/help/dead-export-low.html) — no file, no icon.
+  const help = HELP_HTML[group.key];
+  if (help) {
+    const helpBtn = document.createElement('button');
+    helpBtn.type = 'button';
+    helpBtn.className = 'f-help';
+    helpBtn.textContent = '?';
+    helpBtn.setAttribute('aria-label', `What does "${group.label}" mean?`);
+    helpBtn.addEventListener('click', () => showHelp(help, helpBtn));
+    heading.appendChild(helpBtn);
+  }
+
   section.appendChild(heading);
 
   const advice = document.createElement('p');
@@ -84,6 +102,8 @@ function renderGroup(group: Group): { section: HTMLElement; rows: { el: HTMLElem
 }
 
 export function renderFindings(data: RenderData): void {
+  initHelpModal();
+
   const findings = data.findings;
   byId('findingsCount').textContent = String(findings.length);
 

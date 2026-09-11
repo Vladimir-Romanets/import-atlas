@@ -3,3 +3,4 @@ dist
 *.log
 .DS_Store
 src/render.generated.ts
+src/render/client/helpContent.generated.ts

@@ -1,0 +1,138 @@
+<h2>Names Reached Through a Default Object</h2>
+<p>
+  This is the least trustworthy group in the list. Each row is a name the file exports that also
+  appears as a property of the object it default-exports — and that default export <em>is</em>
+  imported elsewhere. Consumers most likely call it as <code>Default.name()</code>, an access the
+  import graph cannot follow, so the name looks unimported when it is not.
+</p>
+
+<h3>1. Recommendations</h3>
+<p>
+  <strong>Resolution Strategy:</strong> Verify before removing anything. Unlike the other groups,
+  the default assumption here is that the symbol is alive.
+</p>
+<ul>
+  <li>
+    <strong>To confirm the name is used:</strong> search the codebase for property access on the
+    default import (<code>Utils.name</code>, <code>Utils['name']</code>) rather than for the bare
+    identifier. An IDE's "Find Usages" on the property is more reliable than a text search for the
+    name alone.
+  </li>
+  <li>
+    <strong>If it is used through the object:</strong> nothing is wrong with the symbol. The
+    finding is a limitation of static import analysis — dismiss it, or take it as an argument for
+    the refactor below.
+  </li>
+  <li>
+    <strong>If nothing reaches it, through the object or otherwise:</strong> it is genuinely dead
+    and can be removed — from both the declaration and the aggregate object.
+  </li>
+  <li>
+    <strong>To stop the ambiguity at the source:</strong> replace the default object with named
+    exports. Every reason below is an argument for doing so, and it makes future findings in this
+    file trustworthy instead of speculative.
+  </li>
+</ul>
+
+<h3>2. Runtime Errors Due to Accidental Code Removal</h3>
+<p>
+  <strong>Problem:</strong> Static analysis tools and linters (e.g. ESLint) cannot reliably trace
+  property access on default objects (such as <code>defaultImport.methodName()</code>). To these
+  tools — and to this one — the underlying symbol appears to be unused.
+</p>
+<p>
+  <strong>Consequence:</strong> A developer or an automated cleanup tool might remove the "unused"
+  function from the source file. The project still compiles, but fails at runtime for end users
+  with a <code>TypeError: defaultObject.method is not a function</code>. This is exactly the
+  mistake section 1 is guarding against.
+</p>
+
+<h3>3. Weakened Tree Shaking</h3>
+<p>
+  Bundlers (such as Webpack, Vite, and Rollup) rely on the static analysis of ES modules.
+</p>
+<p>
+  <strong>Problem:</strong> An exported object is a single value, so dead-code elimination has to
+  reason about its properties instead of about module-level bindings — a much weaker analysis.
+</p>
+<p>
+  <strong>Consequence:</strong> Unused members frequently survive into the bundle even when only
+  one of them is called. Rollup can drop unreferenced properties of a plain object literal in
+  favourable cases, and other bundlers manage it inconsistently, but none of it is as dependable as
+  the per-export elimination named exports get for free.
+</p>
+
+<h3>4. Degraded Auto-Imports &amp; Developer Experience</h3>
+<p><strong>Problem:</strong> IDE auto-import (VS Code, WebStorm) indexes exported names.</p>
+<p><strong>Consequence:</strong></p>
+<ul>
+  <li>
+    Typing a member's name offers no auto-import: only the default export itself is suggested, and
+    only under the name the importing file chooses for it.
+  </li>
+  <li>
+    Code navigation (Ctrl+Click / Cmd+Click) on a member lands on the property in the object
+    literal, which may be a shorthand reference rather than the implementation.
+  </li>
+</ul>
+
+<h3>5. Less Reliable Symbol Traversal</h3>
+<p><strong>Problem:</strong> The name no longer crosses the module boundary as a name.</p>
+<p><strong>Consequence:</strong></p>
+<ul>
+  <li>
+    Dependency tooling that works on import edges — including this viewer — cannot attribute the
+    usage to the symbol.
+  </li>
+  <li>
+    "Find Usages" and Rename Symbol still work in TypeScript as long as the object's type is
+    inferred and flows to the call site intact. They degrade in plain JavaScript, and in TypeScript
+    wherever the object passes through <code>any</code>, an index signature, or a dynamic key.
+  </li>
+</ul>
+
+<h3>6. Circular Dependency Hazards</h3>
+<p>
+  <strong>Problem:</strong> A default-exported object is built by an assignment that runs when the
+  module body executes. Function declarations, which named exports commonly are, are hoisted before
+  any module body runs.
+</p>
+<p>
+  <strong>Consequence:</strong> In a cycle between Module A and Module B, an importer that runs
+  first may observe the object as <code>undefined</code> or only partly initialized, while a hoisted
+  named function would have been callable. The cycle is the root cause, but the object export is
+  what turns it into a crash at startup.
+</p>
+
+<h3>Comparison Summary</h3>
+<table>
+  <thead>
+    <tr>
+      <th>Criterion</th>
+      <th>Default Object Export</th>
+      <th>Named Exports</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>Tree Shaking</td>
+      <td>❌ Unreliable (unused members often kept)</td>
+      <td>✅ Predictable per export</td>
+    </tr>
+    <tr>
+      <td>Refactoring Safety</td>
+      <td>❌ Low (risk of runtime errors)</td>
+      <td>✅ High</td>
+    </tr>
+    <tr>
+      <td>IDE Auto-Imports</td>
+      <td>❌ Not offered per member</td>
+      <td>✅ Supported out-of-the-box</td>
+    </tr>
+    <tr>
+      <td>Import-Graph Analysis</td>
+      <td>❌ Blind to member usage</td>
+      <td>✅ Accurate</td>
+    </tr>
+  </tbody>
+</table>
