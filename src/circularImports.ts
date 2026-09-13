@@ -55,40 +55,55 @@ function stronglyConnectedComponents(
 }
 
 /**
- * Finds one cycle through `anchor`'s component, walking only edges whose
- * target is also in `memberSet` — that restriction is what guarantees a
- * back-edge exists to find at all, since a strongly connected component is
- * only strongly connected through its own edges. Not guaranteed to visit
- * every member for components larger than the cycle it happens to close
- * on first — the recommendation and help text call that out explicitly
- * rather than implying the walk is exhaustive.
+ * Finds the shortest cycle that passes through `anchor`, walking only edges
+ * whose target is also in `memberSet` — that restriction is what guarantees
+ * a path back to the anchor exists at all, since a strongly connected
+ * component is only strongly connected through its own edges. A
+ * breadth-first search visits nodes in non-decreasing distance from the
+ * anchor, so the first edge back to it that turns up closes the shortest
+ * possible cycle — which also lets the search stop right there instead of
+ * touching the rest of a large component. Self-edges are skipped: a
+ * component only reaches this function at size 2 or more, where strong
+ * connectivity is already carried by edges between distinct members, so a
+ * self-loop on the anchor is never needed to close the cycle and must not
+ * be allowed to short-circuit the search into reporting just [anchor,
+ * anchor]. Not guaranteed to visit every member for components larger than
+ * the cycle it returns — the recommendation and help text call that out
+ * explicitly rather than implying the walk is exhaustive.
  */
 function representativeCycle(
   anchor: string,
   memberSet: Set<string>,
   adjacency: Record<string, string[]>,
 ): string[] {
-  const stack: string[] = [];
-  const positionOf = new Map<string, number>();
+  const predecessor = new Map<string, string>();
+  const visited = new Set([anchor]);
+  const queue: string[] = [anchor];
 
-  function walk(v: string): string[] | null {
-    stack.push(v);
-    positionOf.set(v, stack.length - 1);
+  for (let i = 0; i < queue.length; i++) {
+    const v = queue[i];
     for (const w of adjacency[v] || []) {
-      if (!memberSet.has(w)) continue;
-      const openPos = positionOf.get(w);
-      if (openPos !== undefined) {
-        return [...stack.slice(openPos), w];
+      if (!memberSet.has(w) || w === v) continue;
+      if (w === anchor) {
+        const chain = [v];
+        let cur = v;
+        while (cur !== anchor) {
+          cur = predecessor.get(cur)!;
+          chain.push(cur);
+        }
+        chain.reverse();
+        chain.push(anchor);
+        return chain;
       }
-      const found = walk(w);
-      if (found) return found;
+      if (!visited.has(w)) {
+        visited.add(w);
+        predecessor.set(w, v);
+        queue.push(w);
+      }
     }
-    stack.pop();
-    positionOf.delete(v);
-    return null;
   }
 
-  return walk(anchor) ?? [anchor, anchor];
+  return [anchor, anchor];
 }
 
 export function computeCircularImports(scanResult: ScanResult): Finding[] {
@@ -135,7 +150,7 @@ export function computeCircularImports(scanResult: ScanResult): Finding[] {
       layer: file.layer,
       name: `${component.length} files`,
       confidence: "high",
-      reason: `These ${component.length} files import each other in a cycle; the path above is one representative walk through it, not necessarily every file or the shortest loop.`,
+      reason: `These ${component.length} files import each other in a cycle; the path above is the shortest cycle through ${file.relPath}, not necessarily every file in the group.`,
       recommendation: RECOMMENDATION,
     });
 

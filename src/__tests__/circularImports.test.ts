@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { computeCircularImports } from '../circularImports';
-import type { Edge, FileNode, ScanResult } from '../types';
+import type { Edge, FileNode, Finding, ScanResult } from '../types';
 
 function file(id: string): FileNode {
   return {
@@ -39,11 +39,17 @@ function adjacencyOf(edges: Edge[]): Record<string, string[]> {
   return adjacency;
 }
 
-/** A path is valid when every consecutive pair is a real edge and it closes back on itself. */
-function expectValidCycle(relPath: string, edges: Edge[]): void {
-  const ids = relPath.split(' → ');
+/**
+ * A path is valid when every consecutive pair is a real edge, it closes back
+ * on itself, and it starts at the finding's own fileId — the anchor is
+ * supposed to be a member of the path it's filed under, not just a label for
+ * the component.
+ */
+function expectValidCycle(finding: Finding, edges: Edge[]): void {
+  const ids = finding.relPath.split(' → ');
   expect(ids.length).toBeGreaterThanOrEqual(2);
   expect(ids[0]).toBe(ids[ids.length - 1]);
+  expect(ids[0]).toBe(finding.fileId);
   const adjacency = adjacencyOf(edges);
   for (let i = 0; i < ids.length - 1; i++) {
     expect(adjacency[ids[i]] ?? [], `${ids[i]} → ${ids[i + 1]}`).toContain(ids[i + 1]);
@@ -84,6 +90,31 @@ describe('computeCircularImports', () => {
     });
   });
 
+  it('does not let a self-edge on the anchor short-circuit a multi-file cycle', () => {
+    // a<->b is the real 2-file cycle. a also imports itself, and a is the
+    // anchor (alphabetically first) — a BFS that doesn't skip self-edges
+    // finds a->a on its very first step and reports "a.ts -> a.ts" under a
+    // "2 files" label, silently dropping b from the output entirely, with
+    // no self-import row to compensate since a is already claimed by the
+    // multi-file component.
+    const scan = makeScan(
+      ['a.ts', 'b.ts'],
+      [
+        edge('a.ts', 'b.ts', ['b']),
+        edge('b.ts', 'a.ts', ['a']),
+        edge('a.ts', 'a.ts', ['a']),
+      ],
+    );
+    const findings = computeCircularImports(scan);
+    expect(findings).toHaveLength(1);
+    expect(findings[0]).toMatchObject({
+      kind: 'circular-import',
+      name: '2 files',
+      relPath: 'a.ts → b.ts → a.ts',
+    });
+    expectValidCycle(findings[0], scan.edges);
+  });
+
   it('flags a cycle that closes back into a barrel, leaving the entry that merely points into it out of the cycle', () => {
     const scan = makeScan(
       ['app/entry.ts', 'ui/index.ts', 'ui/Button.ts'],
@@ -97,7 +128,7 @@ describe('computeCircularImports', () => {
     expect(findings).toHaveLength(1);
     expect(findings[0].name).toBe('2 files');
     expect(findings[0].relPath).not.toContain('app/entry.ts');
-    expectValidCycle(findings[0].relPath, scan.edges);
+    expectValidCycle(findings[0], scan.edges);
   });
 
   it('reports two independent cycles separately, without their membership leaking into each other', () => {
@@ -125,10 +156,10 @@ describe('computeCircularImports', () => {
     ]);
   });
 
-  it('for a strongly-connected group larger than the cycle it closes on first, returns a valid but not necessarily exhaustive path', () => {
+  it('for a strongly-connected group larger than the shortest cycle through the anchor, returns a valid but not necessarily exhaustive path', () => {
     // g/a -> g/b -> g/c -> g/a (a 3-cycle) plus g/b <-> g/d (a 2-cycle sharing
-    // g/b) makes {a,b,c,d} one strongly connected component of size 4, but a
-    // DFS from `a` closes the loop at `c` before ever reaching `d`.
+    // g/b) makes {a,b,c,d} one strongly connected component of size 4, but
+    // the shortest cycle through anchor `a` never reaches `d`.
     const scan = makeScan(
       ['g/a.ts', 'g/b.ts', 'g/c.ts', 'g/d.ts'],
       [
@@ -142,7 +173,31 @@ describe('computeCircularImports', () => {
     const findings = computeCircularImports(scan);
     expect(findings).toHaveLength(1);
     expect(findings[0].name).toBe('4 files');
-    expectValidCycle(findings[0].relPath, scan.edges);
+    expectValidCycle(findings[0], scan.edges);
+  });
+
+  it('anchors the path at fileId even when the alphabetically first member sits outside the first cycle a walk would stumble into', () => {
+    // a -> b -> c -> b closes a 2-cycle between b and c that never touches
+    // a; only c -> d -> a extends the component to include a. A walk that
+    // returns whatever back-edge it meets first (b<-c, opened at position 1)
+    // reports "b.ts -> c.ts -> b.ts" under fileId "a.ts" — the exact
+    // mismatch this issue is about. The shortest cycle that actually passes
+    // through the anchor is the full loop a -> b -> c -> d -> a.
+    const scan = makeScan(
+      ['a.ts', 'b.ts', 'c.ts', 'd.ts'],
+      [
+        edge('a.ts', 'b.ts', ['b']),
+        edge('b.ts', 'c.ts', ['c']),
+        edge('c.ts', 'b.ts', ['b']),
+        edge('c.ts', 'd.ts', ['d']),
+        edge('d.ts', 'a.ts', ['a']),
+      ],
+    );
+    const findings = computeCircularImports(scan);
+    expect(findings).toHaveLength(1);
+    expect(findings[0].fileId).toBe('a.ts');
+    expect(findings[0].relPath).toBe('a.ts → b.ts → c.ts → d.ts → a.ts');
+    expectValidCycle(findings[0], scan.edges);
   });
 
   it('is deterministic across repeated calls on the same scan', () => {
@@ -205,6 +260,6 @@ describe('computeCircularImports', () => {
     expect(findings).toHaveLength(1);
     expect(findings[0].name).toBe('3 files');
     // The path must be walkable over eager edges alone.
-    expectValidCycle(findings[0].relPath, scan.edges.filter((e) => !e.isDeferred));
+    expectValidCycle(findings[0], scan.edges.filter((e) => !e.isDeferred));
   });
 });

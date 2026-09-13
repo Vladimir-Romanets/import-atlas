@@ -3,10 +3,11 @@
   This rule flags groups of files that import each other in a loop, computed once over the whole
   scanned graph (every file the walk reached, not just the ones under a given entry point). Each
   row is one strongly connected component — a set of files where every member can reach every
-  other member by following imports — reported as a single representative path through it. A
-  component of more than two files does not always have one simple loop that visits every member;
-  the path shown is one real cycle within the component, not necessarily the shortest one or a
-  tour of every file in it.
+  other member by following imports — reported as a single representative path through it. The
+  path is always the shortest cycle that runs through the file the row is filed under, so that
+  file is always the first (and last) entry on it. A component of more than two files does not
+  always have one simple loop that visits every member; the path shown is one real cycle within
+  the component, not necessarily a tour of every file in it.
 </p>
 <p>
   Only imports that run while a module is evaluating are counted. An import written inside a
@@ -70,7 +71,7 @@
     than the number of files in the shown path — the remaining files are still part of the same
     strongly connected component, just not on this particular representative walk. A three-file
     group whose path lists only two files is the common case: the third reaches the other two and
-    is reached by them, without sitting on the loop the walk closed on first.
+    is reached by them, without sitting on the shortest loop back to the anchor.
   </li>
 </ul>
 

@@ -138,8 +138,8 @@ export interface Finding {
   /**
    * Why this was flagged. For `dead-export`/`dead-reexport`, below `high`,
    * also what could still keep it alive. For `circular-import`, spells out
-   * that a multi-file cycle's path is one representative walk through it,
-   * not necessarily every file or the shortest loop.
+   * that a multi-file cycle's path is the shortest cycle through `fileId`,
+   * not necessarily every file in the component.
    */
   reason: string;
   /** What to do about it. */
