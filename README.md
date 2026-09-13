@@ -18,7 +18,7 @@ Scan the local import graph of a JavaScript or TypeScript project, starting from
 - Draws one tree per entry file. A file used in several places is expanded in one of them; everywhere else it starts small and fills in when you click it.
 - Shows a barrel (index) file's re-exports as its children, narrowed to what the importer asked for. `import { Button } from 'components/button'` shows `Button` alone, not the twenty other components that barrel holds.
 - Names each node after the imported name, with the real file name in small text below it and the full path on hover. A node reached by `import { Button } from 'components/button'` reads "Button", even if the file behind it exports that as `default`.
-- Finds import cycles. The tree marks one with ⚠ instead of expanding it forever, and the Findings tab lists every cycle in the graph.
+- Finds import cycles. The tree marks one with ⚠ instead of expanding it forever, and the Findings tab lists them loop by loop, shortest first.
 - Reads each file's exports as well, and reports what the graph can prove about the code: exports nothing imports, import cycles, and modules pulled in by more than one statement from the same file.
 - Colours nodes by "layer" — the first folder under `src/`, or under the project root. A `shared / features / widgets / app` layout reads as colour groups with no setup.
 
@@ -45,7 +45,9 @@ Everything the graph can hold against the code, filterable by name or path. Rows
 - **Named exports duplicating an imported default** — the file exports a symbol both by name and as its default, and only the default is ever imported. The named export is redundant.
 - **Names reached through a default object** — the file collects local names into an object and default-exports it (`const Utils = { leftPad }; export default Utils`), and that default is imported. Callers most likely reach the name as `Utils.leftPad`, a property access no import graph can follow. Check these before removing anything.
 
-**Circular imports** — one row per cycle, found over the whole graph rather than per entry file, so it catches loops that no entry's walk order happens to reveal. A row says how many files the cycle spans (or `self-import`, when a file imports itself) and shows one path through it.
+**Circular imports** — one row per loop, found over the whole graph rather than per entry file, so it catches loops that no entry's walk order happens to reveal. A row shows the chain of imports that closes back on itself, and counts the files on that chain — the count always matches the names beside it. Tightest loops come first, since a pair of files importing each other is the easiest kind to separate.
+
+Files often tangle into a group where everyone reaches everyone, and such a group holds many loops. Each one gets its own row, so a fix has a row to belong to; the hover text says how big the group is and how many loops were found in it. Only loops of four files or fewer are listed — longer ones are usually two shorter loops chained together. Raise that with `--max-cycle-length`, or drop it to `2` to see only mutual imports.
 
 Only imports that run while a module is loading count. An import written inside a function — `lazy(() => import('./Page'))`, a `require()` in a branch — runs when that function is called, long after every module has loaded, so a loop closing only through one of those is not reported. A `require()` or `await import()` at the top level is counted: those run during loading, like a plain `import`.
 
@@ -147,7 +149,8 @@ import {
 // exactly what renderHtml() puts in the Findings tab, in the same order
 const findings = sortFindings([
   ...computeFindings(result),        // unimported exports and re-exports
-  ...computeCircularImports(result), // import cycles, one row per cycle
+  ...computeCircularImports(result), // import cycles, one row per loop
+                                     // takes { maxCycleLength } — default 4
   ...computeDupeImports(result),     // one module imported by several statements
 ]);
 ```

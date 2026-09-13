@@ -156,10 +156,11 @@ describe('computeCircularImports', () => {
     ]);
   });
 
-  it('for a strongly-connected group larger than the shortest cycle through the anchor, returns a valid but not necessarily exhaustive path', () => {
-    // g/a -> g/b -> g/c -> g/a (a 3-cycle) plus g/b <-> g/d (a 2-cycle sharing
-    // g/b) makes {a,b,c,d} one strongly connected component of size 4, but
-    // the shortest cycle through anchor `a` never reaches `d`.
+  it('gives a group holding two loops one row per loop, not one row for the group', () => {
+    // g/a -> g/b -> g/c -> g/a (a 3-loop) plus g/b <-> g/d (a 2-loop sharing
+    // g/b) makes {a,b,c,d} one strongly connected group of 4. Reported as a
+    // group it was a single row labelled "4 files" whose path named three of
+    // them and left g/d invisible; as loops it is both problems, each whole.
     const scan = makeScan(
       ['g/a.ts', 'g/b.ts', 'g/c.ts', 'g/d.ts'],
       [
@@ -171,18 +172,35 @@ describe('computeCircularImports', () => {
       ],
     );
     const findings = computeCircularImports(scan);
-    expect(findings).toHaveLength(1);
-    expect(findings[0].name).toBe('4 files');
-    expectValidCycle(findings[0], scan.edges);
+    expect(findings.map((f) => [f.name, f.relPath])).toEqual([
+      ['2 files', 'g/b.ts → g/d.ts → g/b.ts'],
+      ['3 files', 'g/a.ts → g/b.ts → g/c.ts → g/a.ts'],
+    ]);
+    for (const f of findings) expectValidCycle(f, scan.edges);
   });
 
-  it('anchors the path at fileId even when the alphabetically first member sits outside the first cycle a walk would stumble into', () => {
-    // a -> b -> c -> b closes a 2-cycle between b and c that never touches
-    // a; only c -> d -> a extends the component to include a. A walk that
-    // returns whatever back-edge it meets first (b<-c, opened at position 1)
-    // reports "b.ts -> c.ts -> b.ts" under fileId "a.ts" — the exact
-    // mismatch this issue is about. The shortest cycle that actually passes
-    // through the anchor is the full loop a -> b -> c -> d -> a.
+  it('names every file it counts, and counts every file it names', () => {
+    // The old row counted the strongly connected group while its path walked
+    // one cycle inside it, so "4 files" could sit beside a path naming three.
+    const scan = makeScan(
+      ['a.ts', 'b.ts', 'c.ts', 'd.ts'],
+      [
+        edge('a.ts', 'b.ts', ['b']),
+        edge('b.ts', 'c.ts', ['c']),
+        edge('c.ts', 'b.ts', ['b']),
+        edge('c.ts', 'd.ts', ['d']),
+        edge('d.ts', 'a.ts', ['a']),
+      ],
+    );
+    for (const f of computeCircularImports(scan)) {
+      const named = new Set(f.relPath.split(' → ')).size;
+      expect(f.name).toBe(`${named} files`);
+      expect(f.fileIds).toHaveLength(named);
+      expectValidCycle(f, scan.edges);
+    }
+  });
+
+  it('puts the tightest loops first', () => {
     const scan = makeScan(
       ['a.ts', 'b.ts', 'c.ts', 'd.ts'],
       [
@@ -194,10 +212,107 @@ describe('computeCircularImports', () => {
       ],
     );
     const findings = computeCircularImports(scan);
+    expect(findings.map((f) => f.relPath)).toEqual([
+      'b.ts → c.ts → b.ts',
+      'a.ts → b.ts → c.ts → d.ts → a.ts',
+    ]);
+  });
+
+  it('files each row under the first file on its own path', () => {
+    const scan = makeScan(
+      ['z.ts', 'm.ts', 'a.ts'],
+      [edge('z.ts', 'm.ts', ['m']), edge('m.ts', 'a.ts', ['a']), edge('a.ts', 'z.ts', ['z'])],
+    );
+    const [finding] = computeCircularImports(scan);
+    expect(finding.fileId).toBe('a.ts');
+    expect(finding.relPath).toBe('a.ts → z.ts → m.ts → a.ts');
+  });
+
+  it('reports the same loop once when two statements import the same module', () => {
+    // A barrel that re-exports one file twice (a value export plus a type
+    // one, say) is two edges but one import to remove — and printing the
+    // loop twice was exactly what a real project produced.
+    const scan = makeScan(
+      ['barrel.ts', 'Modal.tsx'],
+      [
+        edge('barrel.ts', 'Modal.tsx', ['Modal']),
+        edge('barrel.ts', 'Modal.tsx', ['ModalProps']),
+        edge('Modal.tsx', 'barrel.ts', ['Button']),
+      ],
+    );
+    expect(computeCircularImports(scan)).toHaveLength(1);
+  });
+
+  it('falls back to one representative row for a group whose every loop is too long to list', () => {
+    // A ring of six is a single loop of six files — longer than the default
+    // limit of four, so nothing is listed for it loop by loop. It must still
+    // produce exactly one row rather than vanishing.
+    const ids = Array.from({ length: 6 }, (_, i) => `r${i + 1}.ts`);
+    const edges = ids.map((id, i) => edge(id, ids[(i + 1) % ids.length], '*'));
+    const findings = computeCircularImports(makeScan(ids, edges));
     expect(findings).toHaveLength(1);
-    expect(findings[0].fileId).toBe('a.ts');
-    expect(findings[0].relPath).toBe('a.ts → b.ts → c.ts → d.ts → a.ts');
-    expectValidCycle(findings[0], scan.edges);
+    expect(findings[0].name).toBe('6 files');
+    expect(findings[0].reason).toContain('no loop inside it is short enough to list');
+    expectValidCycle(findings[0], edges);
+  });
+
+  it('lists that same ring loop by loop once the limit is raised past it', () => {
+    const ids = Array.from({ length: 6 }, (_, i) => `r${i + 1}.ts`);
+    const edges = ids.map((id, i) => edge(id, ids[(i + 1) % ids.length], '*'));
+    const findings = computeCircularImports(makeScan(ids, edges), { maxCycleLength: 6 });
+    expect(findings).toHaveLength(1);
+    expect(findings[0].reason).not.toContain('no loop inside it is short enough');
+    expect(findings[0].relPath).toBe('r1.ts → r2.ts → r3.ts → r4.ts → r5.ts → r6.ts → r1.ts');
+  });
+
+  it('leaves a loop longer than the limit out while still listing the short ones beside it', () => {
+    // a<->b is a 2-loop; a->c->d->e->a is a 4-loop that the default limit
+    // does list; raising the question of what the limit actually cuts, the
+    // 3-file limit here must keep the first and drop the second.
+    const scan = makeScan(
+      ['a.ts', 'b.ts', 'c.ts', 'd.ts', 'e.ts'],
+      [
+        edge('a.ts', 'b.ts', ['b']),
+        edge('b.ts', 'a.ts', ['a']),
+        edge('a.ts', 'c.ts', ['c']),
+        edge('c.ts', 'd.ts', ['d']),
+        edge('d.ts', 'e.ts', ['e']),
+        edge('e.ts', 'a.ts', ['a']),
+      ],
+    );
+    expect(computeCircularImports(scan, { maxCycleLength: 3 }).map((f) => f.relPath)).toEqual([
+      'a.ts → b.ts → a.ts',
+    ]);
+    expect(computeCircularImports(scan, { maxCycleLength: 4 }).map((f) => f.relPath)).toEqual([
+      'a.ts → b.ts → a.ts',
+      'a.ts → c.ts → d.ts → e.ts → a.ts',
+    ]);
+  });
+
+  it('tells a reader how tangled the group around a loop is', () => {
+    const scan = makeScan(
+      ['g/a.ts', 'g/b.ts', 'g/c.ts', 'g/d.ts'],
+      [
+        edge('g/a.ts', 'g/b.ts', ['b']),
+        edge('g/b.ts', 'g/c.ts', ['c']),
+        edge('g/c.ts', 'g/a.ts', ['a']),
+        edge('g/b.ts', 'g/d.ts', ['d']),
+        edge('g/d.ts', 'g/b.ts', ['b']),
+      ],
+    );
+    const [first] = computeCircularImports(scan);
+    expect(first.reason).toContain('group of 4 files that all reach each other');
+    expect(first.reason).toContain('2 loops of 4 files or fewer were found there');
+  });
+
+  it('says nothing about a group when the loop is the whole of it', () => {
+    const scan = makeScan(
+      ['a.ts', 'b.ts'],
+      [edge('a.ts', 'b.ts', ['b']), edge('b.ts', 'a.ts', ['a'])],
+    );
+    expect(computeCircularImports(scan)[0].reason).toBe(
+      'These 2 files import each other in a loop.',
+    );
   });
 
   it('is deterministic across repeated calls on the same scan', () => {

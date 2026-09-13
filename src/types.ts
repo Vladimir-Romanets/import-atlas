@@ -110,8 +110,8 @@ export type FindingConfidence = 'high' | 'medium' | 'low';
 export interface Finding {
   /**
    * `dead-export` for a name the file declares itself; `dead-reexport` for
-   * one it forwards with `export ... from`; `circular-import` for a file
-   * (or group of files) that imports itself, directly or through a chain;
+   * one it forwards with `export ... from`; `circular-import` for one loop
+   * of files that import each other, or a file that imports itself;
    * `dupe-import` for the same target module pulled in via more than one
    * import/export statement from the same file.
    */
@@ -119,27 +119,28 @@ export interface Finding {
   fileId: string;
   /**
    * Every file the finding covers, when that is more than `fileId` alone —
-   * a multi-file cycle's whole strongly connected component, of which
-   * `fileId` is only the anchor the row is filed under. Omitted when the
-   * finding is about `fileId` and nothing else, so counting affected files
-   * means unioning `fileIds ?? [fileId]`.
+   * for a `circular-import`, the files on the loop, of which `fileId` is the
+   * first. Rows from one tangled group overlap here on purpose: the same
+   * file can sit on many loops, and unioning `fileIds ?? [fileId]` across
+   * findings is how affected files are counted without double-counting it.
    */
   fileIds?: string[];
   relPath: string;
   layer: string;
   /**
    * For `dead-export`/`dead-reexport`: the exported name, as consumers
-   * would have to write it. For `circular-import`: a short file-count label
-   * (`"3 files"`, or `"self-import"`). For `dupe-import`: the imported
-   * module's label plus how many times it was imported (`"Button (×2)"`).
+   * would have to write it. For `circular-import`: how many files are on the
+   * loop, which is exactly how many `relPath` names (`"3 files"`), or
+   * `"self-import"`. For `dupe-import`: the imported module's label plus how
+   * many times it was imported (`"Button (×2)"`).
    */
   name: string;
   confidence: FindingConfidence;
   /**
    * Why this was flagged. For `dead-export`/`dead-reexport`, below `high`,
-   * also what could still keep it alive. For `circular-import`, spells out
-   * that a multi-file cycle's path is the shortest cycle through `fileId`,
-   * not necessarily every file in the component.
+   * also what could still keep it alive. For `circular-import`, the context
+   * one loop cannot carry on its own: how large the mutually-reachable group
+   * around it is, and how many other loops were found in that group.
    */
   reason: string;
   /** What to do about it. */

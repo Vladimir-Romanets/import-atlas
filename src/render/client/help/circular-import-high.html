@@ -1,13 +1,17 @@
 <h2>Technical Analysis: Circular Imports</h2>
 <p>
-  This rule flags groups of files that import each other in a loop, computed once over the whole
-  scanned graph (every file the walk reached, not just the ones under a given entry point). Each
-  row is one strongly connected component — a set of files where every member can reach every
-  other member by following imports — reported as a single representative path through it. The
-  path is always the shortest cycle that runs through the file the row is filed under, so that
-  file is always the first (and last) entry on it. A component of more than two files does not
-  always have one simple loop that visits every member; the path shown is one real cycle within
-  the component, not necessarily a tour of every file in it.
+  This rule flags files that import each other in a loop, computed once over the whole scanned
+  graph (every file the walk reached, not just the ones under a given entry point). <strong>Each
+  row is one loop</strong> — a real chain of imports that closes back on the file it started
+  from, visiting no file twice. The count in the left-hand column is how many files are on that
+  loop, so it matches the number of names in the path beside it. The one row that is not a loop
+  is <code>self-import</code>, a file that reaches itself in a single step.
+</p>
+<p>
+  Loops of four files or fewer are listed, since a longer one is rarely a distinct problem —
+  usually it is two shorter ones chained together, and fixing either shortens it. Raise that with
+  <code>--max-cycle-length</code> to see wider loops, or drop it to <code>2</code> for mutual
+  imports only. A group holding no loop that short is still reported — see below.
 </p>
 <p>
   Only imports that run while a module is evaluating are counted. An import written inside a
@@ -24,13 +28,15 @@
   <strong>Difference:</strong> The Tree tab marks a node <code>⚠ circular import</code> the first
   time a depth-first walk from one entry point revisits a file still open on its current path.
   That catches only the loops (and only the first back-edge) visible from wherever you happened to
-  click. This list is independent of any entry point or walk order — it is every cycle the graph
-  actually contains.
+  click. This list is computed from the graph itself, so it depends on neither an entry point nor
+  a walk order — nor on where you clicked.
 </p>
 <p>
-  <strong>Consequence:</strong> A cycle can appear here without ever showing a warning on the
-  tree (if no entry point's walk order happens to hit its back-edge), and the tree's warning
-  always corresponds to some cycle listed here.
+  <strong>Consequence:</strong> A loop can appear here without ever showing a warning on the tree,
+  if no entry point's walk order happens to hit its back-edge. The reverse does not hold as
+  neatly: a warned file is certainly caught up in circular imports, but the particular loop the
+  tree stumbled into may be longer than the ones printed here, so it need not appear as a row of
+  its own.
 </p>
 
 <h3>2. Fragile Load Order &amp; Partial Modules</h3>
@@ -56,22 +62,33 @@
   shaking.
 </p>
 
-<h3>4. Reading the Path</h3>
+<h3>4. Reading the Rows</h3>
 <p>
   <strong>Problem:</strong> The path column reads like <code>a.ts → b.ts → c.ts → a.ts</code> —
   each arrow is a real import edge in the scan, and the chain closes back on its starting file.
+  Breaking any one of those arrows removes that loop.
 </p>
 <ul>
   <li>
-    <strong>Two-file cycles:</strong> the path shown is the whole cycle — two files can only be
-    strongly connected one way.
+    <strong>Several rows can share files.</strong> Files often tangle into a group where everyone
+    reaches everyone, and such a group holds many loops. Each gets its own row, and the hover text
+    says how large the group is and how many loops were found in it. An import that keeps
+    reappearing across rows is worth looking at first: the more loops run through it, the more of
+    them one change closes.
   </li>
   <li>
-    <strong>Three files or more:</strong> the <code>name</code> column's file count can be larger
-    than the number of files in the shown path — the remaining files are still part of the same
-    strongly connected component, just not on this particular representative walk. A three-file
-    group whose path lists only two files is the common case: the third reaches the other two and
-    is reached by them, without sitting on the shortest loop back to the anchor.
+    <strong>Very tangled groups are capped.</strong> No single group prints more than 100 rows.
+    When there are more, the shortest ones are kept and the hover text says how many were found
+    in total, so the number is never quietly lost.
+  </li>
+  <li>
+    <strong>Shortest first.</strong> Two-file rows head the list: a pair importing each other is
+    both the easiest to understand and usually the easiest to separate.
+  </li>
+  <li>
+    <strong>A group with no short loop</strong> — a long ring of files, say — still gets exactly
+    one row, carrying the shortest cycle through its alphabetically first file. The hover text
+    says so, so a group is never silently skipped for being awkwardly shaped.
   </li>
 </ul>
 

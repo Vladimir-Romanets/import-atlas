@@ -6,6 +6,8 @@ import { CSS, BODY, SCRIPT } from "./render.generated";
 
 export interface RenderOptions {
   title: string;
+  /** Longest circular-import loop reported as its own row. See `DEFAULT_MAX_CYCLE_LENGTH`. */
+  maxCycleLength?: number;
 }
 
 function escapeHtml(s: string): string {
@@ -51,7 +53,9 @@ export function renderHtml(
     coverageGaps: scanResult.coverageGaps,
     findings: sortFindings([
       ...computeFindings(scanResult),
-      ...computeCircularImports(scanResult),
+      ...computeCircularImports(scanResult, {
+        maxCycleLength: options.maxCycleLength,
+      }),
       ...computeDupeImports(scanResult),
     ]),
     forest,

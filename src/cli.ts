@@ -6,6 +6,7 @@ import { execFile } from 'child_process';
 import { scan } from './scan';
 import { buildForest } from './buildForest';
 import { renderHtml } from './render';
+import { DEFAULT_MAX_CYCLE_LENGTH } from './circularImports';
 
 // eslint-disable-next-line @typescript-eslint/no-var-requires
 const pkg = require('../package.json') as { version: string };
@@ -64,6 +65,12 @@ program
   .option('-c, --tsconfig <path>', 'explicit tsconfig.json path')
   .option('-e, --exclude <regex...>', 'skip files whose root-relative path matches this regex')
   .option('--max-files <n>', 'stop after scanning this many files', (v) => parseInt(v, 10), 4000)
+  .option(
+    '--max-cycle-length <n>',
+    'longest circular-import loop reported as its own row',
+    (v) => parseInt(v, 10),
+    DEFAULT_MAX_CYCLE_LENGTH
+  )
   .option('-o, --out <file>', 'output HTML file', 'import-graph.html')
   .option('-t, --title <title>', 'page title', 'Import Graph')
   .option('--json <file>', 'also write the raw graph JSON to this file')
@@ -77,7 +84,10 @@ program
       maxFiles: opts.maxFiles
     });
     const forest = buildForest(result);
-    const html = renderHtml(forest, result, { title: opts.title });
+    const html = renderHtml(forest, result, {
+      title: opts.title,
+      maxCycleLength: opts.maxCycleLength
+    });
 
     fs.writeFileSync(opts.out, html);
     console.error(
