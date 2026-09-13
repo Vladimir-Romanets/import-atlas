@@ -1,3 +1,10 @@
+## [0.10.1](https://github.com/Vladimir-Romanets/import-atlas/compare/v0.10.0...v0.10.1) (2026-09-13)
+
+
+### Bug Fixes
+
+* anchor circular-import path at fileId via shortest-cycle BFS ([#20](https://github.com/Vladimir-Romanets/import-atlas/issues/20)) ([74b6a48](https://github.com/Vladimir-Romanets/import-atlas/commit/74b6a481f9d3bbcae4f2c1102f39dfd7bdf1ebea))
+
 # [0.10.0](https://github.com/Vladimir-Romanets/import-atlas/compare/v0.9.0...v0.10.0) (2026-09-11)
 
 
