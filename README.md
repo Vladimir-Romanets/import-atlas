@@ -1,5 +1,13 @@
 # import-atlas
 
+[![npm version](https://img.shields.io/npm/v/import-atlas.svg)](https://www.npmjs.com/package/import-atlas)
+[![CI](https://github.com/Vladimir-Romanets/import-atlas/actions/workflows/ci.yml/badge.svg)](https://github.com/Vladimir-Romanets/import-atlas/actions/workflows/ci.yml)
+[![License: MIT](https://img.shields.io/npm/l/import-atlas.svg)](https://github.com/Vladimir-Romanets/import-atlas/blob/main/LICENSE)
+[![Downloads](https://img.shields.io/npm/dm/import-atlas.svg)](https://www.npmjs.com/package/import-atlas)
+[![Bundle size](https://img.shields.io/bundlephobia/minzip/import-atlas)](https://bundlephobia.com/package/import-atlas)
+[![Types](https://img.shields.io/npm/types/import-atlas.svg)](https://www.npmjs.com/package/import-atlas)
+[![Node engines](https://img.shields.io/node/v/import-atlas.svg)](https://www.npmjs.com/package/import-atlas)
+
 Scan the local import graph of a JavaScript or TypeScript project, starting from one or more entry files, and get it back as an interactive dependency tree in a single HTML file. Runs from the command line and needs no configuration. If the project has a `tsconfig.json`, its `paths` aliases (like `@/*`) are resolved for you.
 
 ## What it does
