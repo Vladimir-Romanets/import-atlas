@@ -1,3 +1,11 @@
+# [0.11.0](https://github.com/Vladimir-Romanets/import-atlas/compare/v0.10.1...v0.11.0) (2026-09-13)
+
+
+### Features
+
+* report circular imports one loop per row ([49dc688](https://github.com/Vladimir-Romanets/import-atlas/commit/49dc688623987ea415aee238886042e7d2156da5))
+* widen the layer palette and enlarge legend swatches ([6b01c24](https://github.com/Vladimir-Romanets/import-atlas/commit/6b01c24732d0934bd205ce895cf64a8ca8a7710c))
+
 ## [0.10.1](https://github.com/Vladimir-Romanets/import-atlas/compare/v0.10.0...v0.10.1) (2026-09-13)
 
 
