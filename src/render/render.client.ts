@@ -140,6 +140,8 @@ createSearch({
   byId: nodeById,
   searchInput: byId<HTMLInputElement>("search"),
   searchHint: byId("searchHint"),
+  // The tree opens on every keystroke, and can afford to: it only unfolds
+  // the ancestors of the one match, and the same chevrons fold them back.
   jumpTo: (id) => {
     showTree();
     nav.jumpTo(id);

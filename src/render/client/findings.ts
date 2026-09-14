@@ -1,4 +1,4 @@
-import type { Finding, RenderData } from '../../types';
+import type { Finding, ReportMeta } from '../../types';
 import { byId } from './dom';
 import { initHelpModal, showHelp } from './findingsHelpModal';
 import { HELP_HTML } from './helpContent.generated';
@@ -106,7 +106,7 @@ function renderGroup(group: Group): { section: HTMLElement; rows: { el: HTMLElem
   return { section, rows };
 }
 
-export function renderFindings(data: RenderData): void {
+export function renderFindings(data: ReportMeta): void {
   initHelpModal();
 
   const findings = data.findings;

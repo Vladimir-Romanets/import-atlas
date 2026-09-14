@@ -15,5 +15,10 @@
     "resolveJsonModule": true
   },
   "include": ["src"],
-  "exclude": ["src/render/render.client.ts", "src/render/client", "src/__tests__"]
+  "exclude": [
+    "src/render/render.client.ts",
+    "src/render/render.graph.client.ts",
+    "src/render/client",
+    "src/__tests__"
+  ]
 }

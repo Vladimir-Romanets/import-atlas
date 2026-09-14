@@ -1,5 +1,5 @@
-import { edgeKey } from "./edgeKey";
-import type { Finding, ScanResult } from "./types";
+import { edgeKey } from "../utils/edgeKey";
+import type { Finding, ScanResult } from "../types";
 
 const RECOMMENDATION =
   "Consolidate the separate import/export statements pulling from this module into a single line.";

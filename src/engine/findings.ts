@@ -1,4 +1,4 @@
-import type { Finding, FindingConfidence, ScanResult } from './types';
+import type { Finding, FindingConfidence, ScanResult } from '../types';
 
 /**
  * Names some importer asked of a file, or `'*'` when one of them asked for

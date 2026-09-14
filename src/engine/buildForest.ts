@@ -1,13 +1,7 @@
-import { edgeKey } from "./edgeKey";
-import type { ScanResult, TreeNode } from "./types";
-
-function summarizeExternals(externalImports: string[]): string {
-  if (externalImports.length === 0) return "";
-  const shown = externalImports.slice(0, 6).join(", ");
-  return externalImports.length > 6
-    ? `${shown}, +${externalImports.length - 6} more`
-    : shown;
-}
+import { edgeKey } from "../utils/edgeKey";
+import { unionNames } from "../utils/importNames";
+import { summarizeExternals } from "../utils/summarize";
+import type { ScanResult, TreeNode } from "../types";
 
 /**
  * Builds the "you imported this file N times" hint for a parent whose
@@ -26,14 +20,6 @@ function summarizeDupeImports(
   const parts = dupes.map(([id, count]) => `${labelOf(id)} (×${count})`);
 
   return `Imported ${parts.length > 1 ? "multiple times" : "twice"} via separate statements: ${parts.join(", ")} — consider consolidating into a single import/export line.`;
-}
-
-function unionNames(a: string[] | '*' | undefined, b: string[] | '*'): string[] | '*' {
-  if (a === '*' || b === '*') return '*';
-  if (!a) return [...b];
-  const set = new Set(a);
-  for (const n of b) set.add(n);
-  return [...set];
 }
 
 /**
@@ -78,12 +64,18 @@ export function buildForest(scanResult: ScanResult): TreeNode[] {
   // A file that re-exports anything: the only kind whose children depend on
   // what was asked of it.
   const isBarrel: Record<string, boolean> = {};
+  // Whether a pair is reached only lazily. A pair linked by several
+  // statements counts as lazy only when every one of them is: one plain
+  // `import` alongside a dynamic one still loads the file eagerly, and
+  // drawing that link as deferred would say the opposite of the truth.
+  const edgeDeferred: Record<string, boolean> = {};
 
   for (const edge of scanResult.edges) {
     (childrenOf[edge.from] ||= []).push(edge.to);
     const key = edgeKey(edge.from, edge.to);
     edgeExposes[key] = unionNames(edgeExposes[key], edge.exposedNames);
     edgeRequests[key] = unionNames(edgeRequests[key], edge.names);
+    edgeDeferred[key] = (edgeDeferred[key] ?? true) && edge.isDeferred;
     if (edge.isReexport) isBarrel[edge.from] = true;
     else hasPlainImportEdge[key] = true;
   }
@@ -136,9 +128,9 @@ export function buildForest(scanResult: ScanResult): TreeNode[] {
   ): TreeNode {
     const file = scanResult.nodes[fileId];
     // A root has no incoming edge to read a label off, so nothing was asked
-    // of it by name.
-    const exposes =
-      parentId !== null ? edgeExposes[edgeKey(parentId, fileId)] : undefined;
+    // of it by name — and nothing deferred it, either.
+    const parentKey = parentId !== null ? edgeKey(parentId, fileId) : null;
+    const exposes = parentKey !== null ? edgeExposes[parentKey] : undefined;
     return {
       renderId,
       fileId,
@@ -150,6 +142,7 @@ export function buildForest(scanResult: ScanResult): TreeNode[] {
       hint,
       ref,
       importedAs: exposes ?? '*',
+      isDeferred: parentKey !== null ? (edgeDeferred[parentKey] ?? false) : false,
       fanIn: scanResult.fanIn[fileId] || 0,
       children: [],
     };

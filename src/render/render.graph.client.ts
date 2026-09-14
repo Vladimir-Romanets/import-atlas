@@ -1,0 +1,170 @@
+import type { GraphRenderData } from "../types";
+import { createColorScale } from "./client/colors";
+import { NODE_H, NODE_W, SVGNS } from "./client/constants";
+import { byId } from "./client/dom";
+import { renderFindings } from "./client/findings";
+import { showGraphDetail } from "./client/graph/detail";
+import { createGraphRenderer } from "./client/graph/graphRenderer";
+import { buildGraphIndex } from "./client/graph/types";
+import { createVisibility } from "./client/graph/visibility";
+import { createSearch } from "./client/search";
+import { renderSidebar } from "./client/sidebar";
+import { createViewport } from "./client/viewport";
+
+// Read rather than declared as a global: the tree viewer declares the same
+// property on `window` with its own payload type, and both entry points are
+// checked as one program.
+const DATA = (window as unknown as { __IMPORT_ATLAS_DATA__: GraphRenderData })
+  .__IMPORT_ATLAS_DATA__;
+
+const graph = DATA.graph;
+const index = buildGraphIndex(graph.nodes, graph.edges);
+
+const colorOf = createColorScale(DATA.layers);
+renderSidebar(DATA, colorOf);
+renderFindings(DATA);
+
+const svg = byId<SVGSVGElement>("canvas");
+const viewportG = byId<SVGGElement>("viewport");
+const edgesG = byId<SVGGElement>("edges");
+const nodesG = byId<SVGGElement>("nodes");
+
+const viewport = createViewport(svg, viewportG);
+const visibility = createVisibility(graph, index);
+
+const tabGraph = byId<HTMLButtonElement>("tabGraph");
+const tabFindings = byId<HTMLButtonElement>("tabFindings");
+const panelGraph = byId("panelGraph");
+const panelFindings = byId("panelFindings");
+
+function activateTab(tab: "graph" | "findings"): void {
+  const isGraph = tab === "graph";
+  tabGraph.setAttribute("aria-selected", String(isGraph));
+  tabFindings.setAttribute("aria-selected", String(!isGraph));
+  panelGraph.hidden = !isGraph;
+  panelFindings.hidden = isGraph;
+}
+
+tabGraph.addEventListener("click", () => {
+  activateTab("graph");
+});
+tabFindings.addEventListener("click", () => {
+  activateTab("findings");
+});
+
+// Every viewport operation measures the SVG to work out where to pan or
+// zoom to, and a panel that isn't showing measures 0×0 — so the sidebar's
+// canvas controls switch back to the graph before they do anything.
+function showGraph(): void {
+  activateTab("graph");
+}
+
+const toggleExpandBtn = byId<HTMLButtonElement>("toggleExpand");
+const toggleExpandText = byId("toggleExpandText");
+
+// Read off the live visibility state rather than kept as a flag of its own,
+// and hung on the renderer's `onVisibilityChange` rather than called beside
+// each mutation: most of what opens and closes nodes is the chevrons and
+// badges the renderer draws, which never come through this file. Every one
+// of them refreshes, so every one of them lands here.
+function renderToggleExpand(): void {
+  const isFullyExpanded = visibility.isFullyExpanded();
+  toggleExpandBtn.setAttribute("aria-checked", String(isFullyExpanded));
+  toggleExpandText.textContent = isFullyExpanded ? "Expanded" : "Collapsed";
+}
+
+const renderer = createGraphRenderer({
+  index,
+  visibility,
+  svg,
+  edgesG,
+  nodesG,
+  colorOf,
+  viewport,
+  onSelect: (node) => {
+    if (node !== null) showGraphDetail(node, index);
+  },
+  onVisibilityChange: renderToggleExpand,
+});
+
+toggleExpandBtn.addEventListener("click", () => {
+  showGraph();
+  if (visibility.isFullyExpanded()) visibility.collapseAll();
+  else visibility.expandAll();
+  renderer.refresh();
+  viewport.fitView(renderer.laidOut());
+});
+
+byId("zoomIn").addEventListener("click", () => {
+  viewport.zoomStep(1.2);
+});
+byId("zoomOut").addEventListener("click", () => {
+  viewport.zoomStep(1 / 1.2);
+});
+byId("fitView").addEventListener("click", () => {
+  showGraph();
+  viewport.fitView(renderer.laidOut());
+});
+
+function jumpTo(id: string, committed: boolean): void {
+  showGraph();
+  if (committed) {
+    // Opening the way in can add nodes, so the layout has to be redone
+    // before there is a position to centre on.
+    if (!visibility.reveal(id)) return;
+    // Landing on a file names the one route that was opened to reach it,
+    // which for a widely shared file is the least interesting thing about
+    // it. Draw everything that imports it instead — that is what someone
+    // searching for `shared/api` came to find out.
+    visibility.showImporters(id);
+    renderer.refresh();
+  }
+
+  // While the reader is still typing, a match that isn't on the canvas is
+  // simply not shown: both calls above outlive the keystroke that made
+  // them, and half-typed queries match files nobody went looking for.
+  const node = renderer.nodeAt(id);
+  if (node === undefined) return;
+
+  const rect = svg.getBoundingClientRect();
+  const k = viewport.clamp(viewport.view.k, 0.6, 1.2);
+  viewport.view.k = k;
+  viewport.view.x = rect.width / 2 - (node.x + NODE_W / 2) * k;
+  viewport.view.y = rect.height / 2 - node.y * k;
+  viewport.applyTransform();
+
+  renderer.select(id);
+  showGraphDetail(node, index);
+
+  // The ring marks an arrival. It lasts far longer than a keystroke, so
+  // only a committed jump earns one.
+  if (!committed) return;
+
+  setTimeout(() => {
+    const box = nodesG.querySelector(`[data-id="${id}"] .box`);
+    if (box === null) return;
+    const ring = document.createElementNS(SVGNS, "rect");
+    ring.setAttribute("class", "pulse");
+    ring.setAttribute("x", "-3");
+    ring.setAttribute("y", "-3");
+    ring.setAttribute("width", String(NODE_W + 6));
+    ring.setAttribute("height", String(NODE_H + 6));
+    ring.setAttribute("rx", "8");
+    box.parentNode!.appendChild(ring);
+    setTimeout(() => {
+      ring.remove();
+    }, 2400);
+  }, 30);
+}
+
+createSearch({
+  byId: index.nodeById,
+  searchInput: byId<HTMLInputElement>("search"),
+  searchHint: byId("searchHint"),
+  jumpTo,
+});
+
+renderer.refresh();
+requestAnimationFrame(() => {
+  viewport.fitView(renderer.laidOut());
+});

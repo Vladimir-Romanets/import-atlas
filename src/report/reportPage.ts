@@ -1,29 +1,23 @@
-import type { ScanResult, TreeNode, RenderData } from "./types";
-import { computeFindings, sortFindings } from "./findings";
-import { computeCircularImports } from "./circularImports";
-import { computeDupeImports } from "./dupeImports";
-import { CSS, BODY, SCRIPT } from "./render.generated";
+import { computeCircularImports } from "../engine/circularImports";
+import { computeDupeImports } from "../engine/dupeImports";
+import { computeFindings, sortFindings } from "../engine/findings";
+import type { ReportMeta, ScanResult } from "../types";
 
-export interface RenderOptions {
+export interface ReportOptions {
   title: string;
   /** Longest circular-import loop reported as its own row. See `DEFAULT_MAX_CYCLE_LENGTH`. */
   maxCycleLength?: number;
 }
 
-function escapeHtml(s: string): string {
-  return s
-    .replace(/&/g, "&amp;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;")
-    .replace(/"/g, "&quot;");
-}
-
-/** Renders a self-contained HTML file: a pannable, collapsible SVG tree of the scanned graph. */
-export function renderHtml(
-  forest: TreeNode[],
+/**
+ * Everything a report says about the scan itself — the sidebar's legend and
+ * fan-in table, the Findings tab, the warnings. Shared by both viewers,
+ * which differ only in how they draw the graph.
+ */
+export function buildReportMeta(
   scanResult: ScanResult,
-  options: RenderOptions,
-): string {
+  options: ReportOptions,
+): ReportMeta {
   const layerCounts: Record<string, number> = {};
   for (const node of Object.values(scanResult.nodes)) {
     layerCounts[node.layer] = (layerCounts[node.layer] || 0) + 1;
@@ -40,7 +34,7 @@ export function renderHtml(
       count,
     }));
 
-  const data: RenderData = {
+  return {
     title: options.title,
     root: scanResult.root,
     entries: scanResult.entries.map(
@@ -58,10 +52,38 @@ export function renderHtml(
       }),
       ...computeDupeImports(scanResult),
     ]),
-    forest,
     generatedAt: new Date().toISOString(),
   };
+}
 
+export function escapeHtml(s: string): string {
+  return s
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;");
+}
+
+export interface ReportPage {
+  title: string;
+  css: string;
+  body: string;
+  script: string;
+  /** The viewer's payload, serialized into the page as `window.__IMPORT_ATLAS_DATA__`. */
+  data: unknown;
+}
+
+/** Wraps one viewer's assets and payload into the self-contained HTML file. */
+export function reportPage({
+  title,
+  css,
+  body,
+  script,
+  data,
+}: ReportPage): string {
+  // `</script>` inside the payload would close the tag it is sitting in;
+  // escaping every `<` is the blunt version of that check, and costs a few
+  // bytes of a file nobody reads by hand.
   const dataJson = JSON.stringify(data).replace(/</g, "\\u003c");
 
   return `<!doctype html>
@@ -69,18 +91,18 @@ export function renderHtml(
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>${escapeHtml(options.title)}</title>
+<title>${escapeHtml(title)}</title>
 <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🌳</text></svg>">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap">
 <style>
-${CSS}
+${css}
 </style>
 </head>
 <body>
-${BODY}
+${body}
 <script>
 window.__IMPORT_ATLAS_DATA__ = ${dataJson};
-${SCRIPT}
+${script}
 </script>
 </body>
 </html>

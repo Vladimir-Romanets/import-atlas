@@ -45,7 +45,9 @@ export function createTreeRenderer({
     const d = `M ${px} ${py} H ${mid} V ${cy} H ${cx}`;
     const path = document.createElementNS(SVGNS, "path");
     path.setAttribute("d", d);
-    path.setAttribute("class", "edge");
+    // A tree node has exactly one parent, so the edge drawn into it is the
+    // one its own `isDeferred` describes.
+    path.setAttribute("class", c.isDeferred ? "edge edge-deferred" : "edge");
     const col = colorOf(c.layer);
     path.style.setProperty("--dot-l", col[0]);
     path.style.setProperty("--dot-d", col[1]);
