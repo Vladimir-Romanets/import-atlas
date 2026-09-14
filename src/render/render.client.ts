@@ -90,7 +90,7 @@ const toggleExpandText = byId("toggleExpandText");
 function renderToggleExpand(): void {
   const isFullyExpanded = collapsed.size === 0;
   toggleExpandBtn.setAttribute("aria-checked", String(isFullyExpanded));
-  toggleExpandText.textContent = isFullyExpanded ? "Expanded all" : "Collapsed";
+  toggleExpandText.textContent = isFullyExpanded ? "Expanded" : "Collapsed";
 }
 
 // Every action that can change `collapsed` (this switch, or clicking a node

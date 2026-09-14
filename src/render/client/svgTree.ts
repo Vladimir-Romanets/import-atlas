@@ -141,8 +141,7 @@ export function createTreeRenderer({
     const isOpen = node.children.length > 0 && !collapsed.has(node.renderId);
     const showBadge = hasVisibleChildren && !isOpen;
     const badgeWidth = showBadge ? 8 + String(node._count).length * 6.5 : 0;
-    let glyphOffset =
-      (hasVisibleChildren ? 14 : 0) + (showBadge ? badgeWidth + 4 : 0);
+    let glyphOffset = showBadge ? badgeWidth + 4 : 0;
 
     if (node.warn) {
       const w = document.createElementNS(SVGNS, "text");
@@ -167,26 +166,34 @@ export function createTreeRenderer({
     }
 
     if (hasVisibleChildren) {
+      const chevG = document.createElementNS(SVGNS, "g");
+      chevG.setAttribute("class", "chev-node");
+      const chevCircle = document.createElementNS(SVGNS, "circle");
+      chevCircle.setAttribute("cx", String(NODE_W));
+      chevCircle.setAttribute("cy", String(NODE_H / 2));
+      chevCircle.setAttribute("r", "7");
+      chevG.appendChild(chevCircle);
       const chev = document.createElementNS(SVGNS, "text");
       chev.setAttribute("class", "chev");
-      chev.setAttribute("x", String(rightX));
+      chev.setAttribute("x", String(NODE_W + (isOpen ? 0 : 0.5)));
       chev.setAttribute("y", String(NODE_H / 2 + 3));
-      chev.setAttribute("text-anchor", "end");
+      chev.setAttribute("text-anchor", "middle");
       chev.textContent = isOpen ? "▾" : "▸";
-      g.appendChild(chev);
+      chevG.appendChild(chev);
+      g.appendChild(chevG);
 
       if (showBadge) {
         const bg = document.createElementNS(SVGNS, "g");
         bg.setAttribute("class", "count-badge");
         const brect = document.createElementNS(SVGNS, "rect");
-        brect.setAttribute("x", String(rightX - 14 - badgeWidth));
+        brect.setAttribute("x", String(rightX - badgeWidth));
         brect.setAttribute("y", String(NODE_H / 2 - 8));
         brect.setAttribute("width", String(badgeWidth));
         brect.setAttribute("height", "14.5");
         brect.setAttribute("rx", "8");
         bg.appendChild(brect);
         const btext = document.createElementNS(SVGNS, "text");
-        btext.setAttribute("x", String(rightX - 14 - badgeWidth / 2));
+        btext.setAttribute("x", String(rightX - badgeWidth / 2));
         btext.setAttribute("y", String(NODE_H / 2 + 2.5));
         btext.setAttribute("text-anchor", "middle");
         btext.textContent = String(node._count);
@@ -226,13 +233,7 @@ export function createTreeRenderer({
     visibleEdges = [];
     let nextY = 0;
     forest.forEach((root) => {
-      nextY = buildLayout(
-        root,
-        nextY,
-        visibleNodes,
-        visibleEdges,
-        collapsed,
-      );
+      nextY = buildLayout(root, nextY, visibleNodes, visibleEdges, collapsed);
       nextY += ROW_H * 2.2;
     });
 

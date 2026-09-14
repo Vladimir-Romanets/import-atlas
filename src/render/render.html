@@ -22,7 +22,7 @@
         class="switch"
         role="switch"
         aria-checked="false"
-        aria-label="Expand or collapse all nodes"
+        aria-label="Expand or collapse nodes"
       >
         <span class="switch-track">
           <span class="switch-thumb"></span>
@@ -92,7 +92,9 @@
       </svg>
       <div class="zoom-controls">
         <button type="button" id="zoomIn" aria-label="Zoom in">+</button>
-        <button type="button" id="zoomOut" aria-label="Zoom out">&minus;</button>
+        <button type="button" id="zoomOut" aria-label="Zoom out">
+          &minus;
+        </button>
       </div>
     </div>
     <div
@@ -111,14 +113,23 @@
         autocomplete="off"
         aria-label="Filter findings"
       />
-      <p class="f-empty" id="findingsNoMatches" hidden>No findings match the filter.</p>
+      <p class="f-empty" id="findingsNoMatches" hidden>
+        No findings match the filter.
+      </p>
       <div id="findingsGroups"></div>
     </div>
   </main>
 </div>
 <div id="helpModalBackdrop" class="help-modal-backdrop" hidden>
   <div class="help-modal" role="dialog" aria-modal="true" aria-label="Help">
-    <button type="button" id="helpModalClose" class="help-modal-close" aria-label="Close">&times;</button>
+    <button
+      type="button"
+      id="helpModalClose"
+      class="help-modal-close"
+      aria-label="Close"
+    >
+      &times;
+    </button>
     <div class="help-modal-body" id="helpModalBody"></div>
   </div>
 </div>

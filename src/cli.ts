@@ -41,6 +41,7 @@ program
   .option('--max-files <n>', 'stop after scanning this many files', (v) => parseInt(v, 10), 4000)
   .option('-o, --out <file>', 'write JSON to this file instead of stdout')
   .action((entries: string[], opts) => {
+    console.error('Scanning...');
     const result = scan(entries, {
       root: path.resolve(opts.root),
       tsconfigPath: opts.tsconfig,
@@ -76,6 +77,7 @@ program
   .option('--json <file>', 'also write the raw graph JSON to this file')
   .option('--open', 'open the generated HTML in the default browser')
   .action((entries: string[], opts) => {
+    console.error('Scanning...');
     const root = path.resolve(opts.root);
     const result = scan(entries, {
       root,
