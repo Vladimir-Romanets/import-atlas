@@ -4,7 +4,6 @@
 [![CI](https://github.com/Vladimir-Romanets/import-atlas/actions/workflows/ci.yml/badge.svg)](https://github.com/Vladimir-Romanets/import-atlas/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/npm/l/import-atlas.svg)](https://github.com/Vladimir-Romanets/import-atlas/blob/main/LICENSE)
 [![Downloads](https://img.shields.io/npm/dm/import-atlas.svg)](https://www.npmjs.com/package/import-atlas)
-[![Bundle size](https://img.shields.io/bundlephobia/minzip/import-atlas)](https://bundlephobia.com/package/import-atlas)
 [![Types](https://img.shields.io/npm/types/import-atlas.svg)](https://www.npmjs.com/package/import-atlas)
 [![Node engines](https://img.shields.io/node/v/import-atlas.svg)](https://www.npmjs.com/package/import-atlas)
 
@@ -28,9 +27,9 @@ The generated HTML is one self-contained file with two tabs: **Tree** and **Find
 
 ### Tree
 
-Drag to pan, scroll or use the +/− buttons to zoom, click a node to open or close it. "Find a file" in the sidebar jumps to any file by name or path. **Expand all / Collapse** switches between opening everything and the default view, where only the first level or so is open.
+Drag to pan, scroll or use the +/− buttons to zoom, click a node to open or close it. "Find a file" in the sidebar jumps to any file by name or path. **Expand / Collapse** switches between opening everything already loaded and the default view, where only the first level or so is open.
 
-A file used in several places is expanded in one of them. Elsewhere it is drawn as a node with no children yet. Click it and it fills in one level, copied from that expansion; its children then behave the same way. So following `Button` down two different pages shows each page's own path, instead of sending you to one shared copy. This is also why "Expand all" never pulls a shared file's whole subtree into every place it is used.
+A file used in several places is expanded in one of them. Elsewhere it is drawn as a node with no children yet. Click it and it fills in one level, copied from that expansion; its children then behave the same way. So following `Button` down two different pages shows each page's own path, instead of sending you to one shared copy. This is also why "Expand" never pulls a shared file's whole subtree into every place it is used.
 
 Barrels are the exception: a barrel gets its own expansion for each distinct set of names asked of it, since that is what decides its children.
 
@@ -89,21 +88,21 @@ For repeat use, put it in `package.json`:
 
 ### Options (both commands)
 
-| Flag                       | Default       | Description                                                                                                                         |
-| -------------------------- | ------------- | ----------------------------------------------------------------------------------------------------------------------------------- |
+| Flag                       | Default       | Description                                                                                                                                              |
+| -------------------------- | ------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `-r, --root <dir>`         | cwd           | Project root. Entry paths are resolved against it (not against cwd), report paths are shown relative to it, and `tsconfig.json` is searched for from it. |
-| `-c, --tsconfig <path>`    | auto-detected | Explicit `tsconfig.json` path, if it isn't the nearest one above the root.                                                          |
-| `-e, --exclude <regex...>` | none          | Skip files whose root-relative path matches any of these regexes. Accepts multiple values, e.g. `--exclude "\.test\." "__mocks__"`. |
-| `--max-files <n>`          | 4000          | Safety cap on how many files a single scan will visit.                                                                              |
-| `-o, --out <file>`         | per command   | Where to write the output. `graph` writes HTML, defaulting to `import-graph.html`; `scan` writes JSON, and prints to stdout when the flag is omitted. |
+| `-c, --tsconfig <path>`    | auto-detected | Explicit `tsconfig.json` path, if it isn't the nearest one above the root.                                                                               |
+| `-e, --exclude <regex...>` | none          | Skip files whose root-relative path matches any of these regexes. Accepts multiple values, e.g. `--exclude "\.test\." "__mocks__"`.                      |
+| `--max-files <n>`          | 4000          | Safety cap on how many files a single scan will visit.                                                                                                   |
+| `-o, --out <file>`         | per command   | Where to write the output. `graph` writes HTML, defaulting to `import-graph.html`; `scan` writes JSON, and prints to stdout when the flag is omitted.    |
 
 ### `graph`-only options
 
-| Flag                  | Default             | Description                                         |
-| --------------------- | ------------------- | --------------------------------------------------- |
-| `-t, --title <title>` | `Import Graph`      | Page title shown in the sidebar and browser tab.    |
-| `--json <file>`       | —                   | Also dump the raw graph as JSON alongside the HTML. |
-| `--open`              | off                 | Open the generated HTML in the OS default browser.  |
+| Flag                  | Default        | Description                                         |
+| --------------------- | -------------- | --------------------------------------------------- |
+| `-t, --title <title>` | `Import Graph` | Page title shown in the sidebar and browser tab.    |
+| `--json <file>`       | —              | Also dump the raw graph as JSON alongside the HTML. |
+| `--open`              | off            | Open the generated HTML in the OS default browser.  |
 
 ## Using it with file-system routers (Next.js, Nuxt, SvelteKit, Remix…)
 
@@ -148,10 +147,10 @@ import {
 
 // exactly what renderHtml() puts in the Findings tab, in the same order
 const findings = sortFindings([
-  ...computeFindings(result),        // unimported exports and re-exports
+  ...computeFindings(result), // unimported exports and re-exports
   ...computeCircularImports(result), // import cycles, one row per loop
-                                     // takes { maxCycleLength } — default 4
-  ...computeDupeImports(result),     // one module imported by several statements
+  // takes { maxCycleLength } — default 4
+  ...computeDupeImports(result), // one module imported by several statements
 ]);
 ```
 
