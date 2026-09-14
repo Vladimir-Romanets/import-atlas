@@ -1,3 +1,10 @@
+# [0.13.0](https://github.com/Vladimir-Romanets/import-atlas/compare/v0.12.0...v0.13.0) (2026-09-14)
+
+
+### Features
+
+* add the merged graph viewer ([#24](https://github.com/Vladimir-Romanets/import-atlas/issues/24)) ([dc064a0](https://github.com/Vladimir-Romanets/import-atlas/commit/dc064a066005976881d2309919e10724069fc210))
+
 # [0.12.0](https://github.com/Vladimir-Romanets/import-atlas/compare/v0.11.0...v0.12.0) (2026-09-14)
 
 
