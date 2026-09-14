@@ -1,3 +1,10 @@
+# [0.12.0](https://github.com/Vladimir-Romanets/import-atlas/compare/v0.11.0...v0.12.0) (2026-09-14)
+
+
+### Features
+
+* circle the tree chevron and print scan progress ([#23](https://github.com/Vladimir-Romanets/import-atlas/issues/23)) ([6f11eea](https://github.com/Vladimir-Romanets/import-atlas/commit/6f11eeaad88b56e2416fa312c00cd6ef3a9ee4a6))
+
 # [0.11.0](https://github.com/Vladimir-Romanets/import-atlas/compare/v0.10.1...v0.11.0) (2026-09-13)
 
 
