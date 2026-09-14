@@ -1,4 +1,4 @@
-import type { Finding, ScanResult } from "./types";
+import type { Finding, ScanResult } from "../types";
 
 const RECOMMENDATION =
   "Break the cycle by extracting the shared code both sides depend on into a new module, or by importing lazily/dynamically on one side instead of at module scope.";

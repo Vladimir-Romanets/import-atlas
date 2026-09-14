@@ -1,6 +1,6 @@
 import * as fs from 'fs';
 import * as ts from 'typescript';
-import type { ExportFacts } from './types';
+import type { ExportFacts } from '../types';
 
 function scriptKindFor(filePath: string): ts.ScriptKind {
   if (filePath.endsWith('.tsx')) return ts.ScriptKind.TSX;

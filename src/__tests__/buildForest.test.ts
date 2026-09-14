@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { buildForest } from '../buildForest';
+import { buildForest } from '../engine/buildForest';
 import type { Edge, FileNode, ScanResult } from '../types';
 
 function file(id: string): FileNode {
@@ -20,7 +20,11 @@ function edge(
   from: string,
   to: string,
   names: string[] | '*',
-  opts: { isReexport?: boolean; exposedNames?: string[] | '*' } = {},
+  opts: {
+    isReexport?: boolean;
+    exposedNames?: string[] | '*';
+    isDeferred?: boolean;
+  } = {},
 ): Edge {
   return {
     from,
@@ -28,6 +32,7 @@ function edge(
     names,
     exposedNames: opts.exposedNames ?? names,
     isReexport: opts.isReexport ?? false,
+    isDeferred: opts.isDeferred ?? false,
   };
 }
 
@@ -52,6 +57,65 @@ function findChild(nodes: { fileId: string; children: any[] }[], fileId: string)
   }
   return undefined;
 }
+
+describe('buildForest — lazy links', () => {
+  it('marks a child reached only by a dynamic import, and leaves the root alone', () => {
+    const scan = makeScan(
+      ['app/entry.ts'],
+      ['app/entry.ts', 'app/eager.ts', 'app/lazy.ts'],
+      [
+        edge('app/entry.ts', 'app/eager.ts', ['E']),
+        edge('app/entry.ts', 'app/lazy.ts', '*', { isDeferred: true }),
+      ],
+    );
+    const forest = buildForest(scan);
+
+    expect(findChild(forest, 'app/lazy.ts').isDeferred).toBe(true);
+    expect(findChild(forest, 'app/eager.ts').isDeferred).toBe(false);
+    // Nothing imports a root, so nothing defers it either.
+    expect(forest[0].isDeferred).toBe(false);
+  });
+
+  it('does not call a pair lazy when one of its statements loads it eagerly', () => {
+    // `import { a } from './x'` next to an `await import('./x')` in the same
+    // file: the file is in the bundle either way, and a dotted line would
+    // say the opposite.
+    const scan = makeScan(
+      ['app/entry.ts'],
+      ['app/entry.ts', 'app/x.ts'],
+      [
+        edge('app/entry.ts', 'app/x.ts', '*', { isDeferred: true }),
+        edge('app/entry.ts', 'app/x.ts', ['a']),
+      ],
+    );
+    expect(findChild(buildForest(scan), 'app/x.ts').isDeferred).toBe(false);
+  });
+
+  it('reads the flag off each occurrence own parent edge, refs included', () => {
+    // `shared.ts` is expanded under `a.ts` and referenced under `b.ts`. The
+    // eager link is the one that expands it, so the ref is the dotted one.
+    const scan = makeScan(
+      ['app/entry.ts'],
+      ['app/entry.ts', 'app/a.ts', 'app/b.ts', 'app/shared.ts'],
+      [
+        edge('app/entry.ts', 'app/a.ts', ['A']),
+        edge('app/entry.ts', 'app/b.ts', ['B']),
+        edge('app/a.ts', 'app/shared.ts', ['s']),
+        edge('app/b.ts', 'app/shared.ts', '*', { isDeferred: true }),
+      ],
+    );
+    const forest = buildForest(scan);
+    const under = (parent: string) =>
+      findChild(forest, parent).children.find(
+        (child: { fileId: string }) => child.fileId === 'app/shared.ts',
+      );
+
+    expect(under('app/a.ts').ref).toBeNull();
+    expect(under('app/a.ts').isDeferred).toBe(false);
+    expect(under('app/b.ts').ref).not.toBeNull();
+    expect(under('app/b.ts').isDeferred).toBe(true);
+  });
+});
 
 describe('buildForest — hints and cycles', () => {
   it('collapses repeated edges to one child and calls the repetition out in the parent hint', () => {

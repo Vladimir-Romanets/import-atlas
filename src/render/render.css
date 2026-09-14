@@ -92,6 +92,7 @@
   .zoom-controls button{width:30px;height:30px;border-radius:6px;border:1px solid var(--border);background:var(--surface);color:var(--text);font-size:15px;line-height:1;cursor:pointer;box-shadow:0 1px 2px rgba(0,0,0,0.08);}
   .node{cursor:pointer;}
   .node:focus{outline:none;}
+  .node text{user-select:none;-webkit-user-select:none;}
   .node.active .box,
   .node:focus-visible .box{stroke: var(--text-muted);stroke-width: 3px;paint-order: stroke fill;}
   .box{fill:var(--surface);stroke:var(--border-strong);stroke-width:1;}
@@ -107,8 +108,15 @@
   .count-badge text{font-family:var(--font-mono);font-size:9px;fill:var(--text-muted);}
   .warn-glyph{font-size:10.5px;fill:var(--danger);}
   .hint-glyph{font-size:10.5px;}
-  .edge{fill:none;stroke-width:1.4;opacity:0.55;stroke:var(--dot-l);}
+  .edge{fill:none;stroke-width:1;opacity:0.55;stroke:var(--dot-l);}
   @media (prefers-color-scheme: dark){ .edge{stroke:var(--dot-d);} }
+  /* A link taken only lazily — every statement behind it a dynamic import
+     or a require inside a function. Dotted in both viewers. */
+  .edge-deferred{stroke-dasharray:2 3;}
+  .edge-legend{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:6px;font-size:11.5px;color:var(--text-muted);}
+  .edge-legend li{display:flex;align-items:center;gap:8px;}
+  .edge-sample{width:26px;height:0;flex:0 0 auto;border-top:1.6px solid var(--text-muted);}
+  .edge-sample.deferred{border-top-style:dotted;}
   @keyframes pulseRing{0%{stroke-opacity:1;stroke-width:2.6;}70%{stroke-opacity:0.15;stroke-width:9;}100%{stroke-opacity:0;stroke-width:11;}}
   .pulse{fill:none;stroke:var(--highlight);animation:pulseRing 1.1s ease-out 2;}
   @media (prefers-reduced-motion: reduce){ .pulse{animation:none;stroke-opacity:0.9;stroke-width:3;} }

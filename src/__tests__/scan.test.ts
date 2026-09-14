@@ -2,9 +2,9 @@ import * as fs from 'fs';
 import * as os from 'os';
 import * as path from 'path';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
-import { buildForest } from '../buildForest';
-import { computeFindings } from '../findings';
-import { scan } from '../scan';
+import { buildForest } from '../engine/buildForest';
+import { computeFindings } from '../engine/findings';
+import { scan } from '../engine/scan';
 
 let root: string;
 

@@ -9,5 +9,9 @@
     "skipLibCheck": true,
     "forceConsistentCasingInFileNames": true
   },
-  "include": ["src/render/render.client.ts", "src/render/client/**/*.ts"]
+  "include": [
+    "src/render/render.client.ts",
+    "src/render/render.graph.client.ts",
+    "src/render/client/**/*.ts"
+  ]
 }

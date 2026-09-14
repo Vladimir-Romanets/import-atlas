@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { computeFindings, sortFindings } from '../findings';
+import { computeFindings, sortFindings } from '../engine/findings';
 import type { Edge, ExportFacts, FileNode, Finding, ScanResult } from '../types';
 
 function facts(partial: Partial<ExportFacts> = {}): ExportFacts {

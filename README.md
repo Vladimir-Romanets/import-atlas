@@ -15,6 +15,7 @@ Scan the local import graph of a JavaScript or TypeScript project, starting from
 - Resolves relative imports and `tsconfig.json` `paths` aliases the way TypeScript does, `extends` chains included.
 - Treats a bare specifier like `react` as an external package: noted on the file that imports it, never followed.
 - Draws one tree per entry file. A file used in several places is expanded in one of them; everywhere else it starts small and fills in when you click it.
+- Or draws the whole thing merged (`import-atlas merged`): every file once, on one canvas, with an edge from each of the places importing it. Shared code is the shape you see rather than something to reconstruct from repeated boxes. `import-atlas all` writes every report from one scan.
 - Shows a barrel (index) file's re-exports as its children, narrowed to what the importer asked for. `import { Button } from 'components/button'` shows `Button` alone, not the twenty other components that barrel holds.
 - Names each node after the imported name, with the real file name in small text below it and the full path on hover. A node reached by `import { Button } from 'components/button'` reads "Button", even if the file behind it exports that as `default`.
 - Finds import cycles. The tree marks one with ⚠ instead of expanding it forever, and the Findings tab lists them loop by loop, shortest first.
@@ -23,7 +24,9 @@ Scan the local import graph of a JavaScript or TypeScript project, starting from
 
 ## The interactive viewer
 
-The generated HTML is one self-contained file with two tabs: **Tree** and **Findings**.
+The generated HTML is one self-contained file with two tabs: the graph and **Findings**.
+
+Which graph depends on the command. `graph` draws a **tree** per entry file, following one path at a time. `merged` draws a single **graph** with every file on it once. They answer different questions and neither replaces the other — see below.
 
 ### Tree
 
@@ -32,6 +35,27 @@ Drag to pan, scroll or use the +/− buttons to zoom, click a node to open or cl
 A file used in several places is expanded in one of them. Elsewhere it is drawn as a node with no children yet. Click it and it fills in one level, copied from that expansion; its children then behave the same way. So following `Button` down two different pages shows each page's own path, instead of sending you to one shared copy. This is also why "Expand" never pulls a shared file's whole subtree into every place it is used.
 
 Barrels are the exception: a barrel gets its own expansion for each distinct set of names asked of it, since that is what decides its children.
+
+A link taken only lazily — a dynamic `import()`, or a `require` inside a function — is drawn dotted, as in the merged view. A pair linked by both a lazy statement and a plain one is drawn solid: the file loads eagerly regardless.
+
+### Merged graph
+
+Written by `import-atlas merged`, as a separate report. Every file is one node, however many places import it, and every importer gets an edge to it. So the thing a tree has to repeat — the barrel that twelve features use, the helper half the app imports — is drawn once here, with the twelve lines arriving at it. That convergence is the picture.
+
+A node has a control on each side:
+
+- the **chevron on the right** opens what the file imports, as in the tree;
+- the **number on the left** is how many files import it, and clicking that opens them. It appears only where some of those importers aren't on screen yet: a file you opened from above is already showing the one that led you there, and so is a barrel whose importers are all drawn.
+
+Clicking a node you have already clicked — one that is selected with nothing left to open — walks one step backwards, to the nearest file importing it; click again and again to follow a file's way back to the entry point. With several importers on screen the nearest one wins, since there is no other way to choose between them. A file the search landed on is not walked away from: it is selected on arrival, but the click that follows is still about the file itself.
+
+The badge is what a tree cannot do from the node itself: it walks the graph backwards. Searching for a file does it for you — land on `shared/api` and its importers are already drawn, since "who uses this" is usually why you went looking.
+
+Selecting a node dims everything it doesn't touch and lights up both directions at once: what imports it, what it imports, and — one hop further — which of a barrel's re-exports that selection actually reaches. That last part is how this view keeps what the tree gets structurally. The tree can give a barrel a separate expansion per set of names asked of it; a merged node serves every importer at once, so the same information is carried by emphasis instead. The barrel keeps all twenty children on screen, and selecting an importer lights the two it uses.
+
+Cycle-closing edges are drawn dashed and red, right to left; lazy or dynamic imports are dotted. Columns are the distance from whatever is furthest upstream **among the nodes currently on screen**, so opening and closing things does move nodes sideways — the alternative is measuring against the whole project, which parks a widely-shared barrel hundreds of columns to the right of the entry point that also imports it directly.
+
+Only what fits on screen is drawn, so a few thousand files stay responsive; zoomed far out, nodes become plain blocks of their layer's colour, since an 11px label is unreadable there anyway.
 
 ### Findings
 
@@ -72,7 +96,25 @@ pnpm add -D import-atlas
 pnpm exec import-atlas graph entry_file --root . --open
 ```
 
-`graph` is the default command, so `import-atlas entry_file --root . --open` does the same thing. The other command, `scan`, writes the raw graph as JSON for scripts and other tools:
+`graph` is the default command, so `import-atlas entry_file --root . --open` does the same thing.
+
+`merged` renders the same scan as one graph instead of a tree per entry — every file drawn once, with an edge from each importer:
+
+```bash
+npx -y import-atlas merged entry_file --root path/to/project --open
+```
+
+It writes `import-graph-merged.html`, so it does not overwrite a report from `graph`, and the two can be kept side by side. `dag` is an alias for it.
+
+`all` writes every report from a single scan, which is the expensive half of the work:
+
+```bash
+npx -y import-atlas all entry_file --root path/to/project --open
+```
+
+Same two filenames as the separate commands, changed with `--out-tree` and `--out-merged`, and one `--title` that the merged report appends " (merged)" to.
+
+The remaining command, `scan`, writes the raw graph as JSON for scripts and other tools:
 
 ```bash
 npx -y import-atlas scan entry_file --root path/to/project --out import-graph.json
@@ -86,23 +128,24 @@ For repeat use, put it in `package.json`:
 }
 ```
 
-### Options (both commands)
+### Options (every command)
 
 | Flag                       | Default       | Description                                                                                                                                              |
 | -------------------------- | ------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `-r, --root <dir>`         | cwd           | Project root. Entry paths are resolved against it (not against cwd), report paths are shown relative to it, and `tsconfig.json` is searched for from it. |
 | `-c, --tsconfig <path>`    | auto-detected | Explicit `tsconfig.json` path, if it isn't the nearest one above the root.                                                                               |
 | `-e, --exclude <regex...>` | none          | Skip files whose root-relative path matches any of these regexes. Accepts multiple values, e.g. `--exclude "\.test\." "__mocks__"`.                      |
-| `--max-files <n>`          | 4000          | Safety cap on how many files a single scan will visit.                                                                                                   |
-| `-o, --out <file>`         | per command   | Where to write the output. `graph` writes HTML, defaulting to `import-graph.html`; `scan` writes JSON, and prints to stdout when the flag is omitted.    |
+| `--max-files <n>`          | 4000, `merged` 10000 | Safety cap on how many files a single scan will visit. Higher for `merged`, which draws a shared file once rather than once per place reaching it, and so stays legible at sizes a tree would not. `all` keeps the tree's 4000, since one scan feeds every report and the tree is the one that gives out first. |
+| `-o, --out <file>`         | per command   | Where to write the output. `graph` writes HTML, defaulting to `import-graph.html`, and `merged` to `import-graph-merged.html`; `scan` writes JSON, and prints to stdout when the flag is omitted. `all` writes one file per report, named by `--out-tree` and `--out-merged` instead. |
 
-### `graph`-only options
+### `graph`, `merged` and `all` options
 
-| Flag                  | Default        | Description                                         |
-| --------------------- | -------------- | --------------------------------------------------- |
-| `-t, --title <title>` | `Import Graph` | Page title shown in the sidebar and browser tab.    |
-| `--json <file>`       | —              | Also dump the raw graph as JSON alongside the HTML. |
-| `--open`              | off            | Open the generated HTML in the OS default browser.  |
+| Flag                       | Default                                | Description                                                                  |
+| -------------------------- | -------------------------------------- | ---------------------------------------------------------------------------- |
+| `-t, --title <title>`      | `Import Graph` / `Import Graph (merged)` | Page title shown in the sidebar and browser tab. `all` takes one title and appends " (merged)" to the merged report's. |
+| `--max-cycle-length <n>`   | 4                                      | Longest circular-import loop reported as its own row in the Findings tab.    |
+| `--json <file>`            | —                                      | Also dump the raw graph as JSON alongside the HTML.                          |
+| `--open`                   | off                                    | Open the generated HTML in the OS default browser.                           |
 
 ## Using it with file-system routers (Next.js, Nuxt, SvelteKit, Remix…)
 
@@ -135,6 +178,18 @@ const html = renderHtml(forest, result, { title: "My app" });
 
 `scan()` returns the whole graph (`nodes`, `edges`, per-node fan-in) and `buildForest()` turns it into the tree the HTML renderer expects. Either is useful on its own if you want your own report format.
 
+The merged report is the same scan through a different pair:
+
+```ts
+import { scan, buildGraph, renderGraphHtml } from "import-atlas";
+
+const result = scan(["src/index.ts"], { root: process.cwd() });
+const graph = buildGraph(result); // one node per file, one edge per pair
+const html = renderGraphHtml(graph, result, { title: "My app" });
+```
+
+`buildGraph()` is worth having on its own: it collapses the repeated statements between a pair of files into one edge, counts how many files import each file, works out how far each sits from an entry point, and marks the edges that close cycles — all of it plain data, and none of it needing the viewer.
+
 The Findings tab is three separate detectors over one `scan()` result. Each returns a `Finding[]` and each works alone:
 
 ```ts
@@ -166,4 +221,6 @@ See [CONTRIBUTING.md](CONTRIBUTING.md) for how to build the tool from source and
 - JS/TS only. A CSS, SCSS, JSON or asset import still appears as a leaf node, since it resolves to a real file, but it is never parsed for imports of its own.
 - `paths` aliases only. A package's own `exports` map is not resolved, which rarely matters since external packages are never followed.
 - One HTML file per run. No watch or incremental mode yet.
+- In the merged view, a node's column is read from what is on screen, so opening or closing things moves nodes sideways. Position is worth comparing within one picture, not between two.
+- The merged view will draw whatever you open, including a node with three hundred importers. Nothing caps that — a fan of three hundred lines is a true answer to "who uses this", but it is not a readable one.
 - Framework routing is never drawn as an edge — it is a file-name convention, not an import. See the section above for how to get full coverage anyway.

@@ -2,9 +2,9 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
-import { computeFindings } from '../findings';
-import { computeCircularImports } from '../circularImports';
-import { computeDupeImports } from '../dupeImports';
+import { computeFindings } from '../engine/findings';
+import { computeCircularImports } from '../engine/circularImports';
+import { computeDupeImports } from '../engine/dupeImports';
 import type { Edge, ExportFacts, FileNode, Finding, ScanResult } from '../types';
 
 /**

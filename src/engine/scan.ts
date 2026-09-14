@@ -3,7 +3,7 @@ import * as path from 'path';
 import { loadTsConfig } from './configLoader';
 import { extractModuleFacts, type ImportSpecifierInfo } from './parseImports';
 import { resolveSpecifier } from './resolveModule';
-import type { Edge, ExportFacts, FileNode, ScanResult } from './types';
+import type { Edge, ExportFacts, FileNode, ScanResult } from '../types';
 
 export interface ScanOptions {
   /** Project root — relative paths in the report, and where to search for tsconfig.json. */

@@ -2,5 +2,5 @@ node_modules
 dist
 *.log
 .DS_Store
-src/render.generated.ts
+src/report/render.generated.ts
 src/render/client/helpContent.generated.ts

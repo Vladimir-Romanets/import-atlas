@@ -1,8 +1,8 @@
-import type { RenderData } from '../../types';
+import type { ReportMeta } from '../../types';
 import type { ColorPair } from './types';
 import { byId } from './dom';
 
-export function renderSidebar(DATA: RenderData, colorOf: (layer: string) => ColorPair): void {
+export function renderSidebar(DATA: ReportMeta, colorOf: (layer: string) => ColorPair): void {
   byId('pageTitle').textContent = DATA.title;
   byId('pageSubtitle').textContent = `${DATA.root} · entries: ${DATA.entries.join(', ')}`;
 

@@ -1,19 +1,32 @@
 import { NODE_W, NODE_H, DRAG_THRESHOLD } from './constants';
-import type { RenderNode } from './types';
+
+/** Anything with a position and size on the canvas — all `fitView` reads. */
+export interface Placed {
+  x: number;
+  y: number;
+}
 
 export interface Viewport {
   view: { x: number; y: number; k: number };
   clamp: (v: number, a: number, b: number) => number;
   applyTransform: () => void;
   zoomStep: (factor: number) => void;
-  fitView: (visibleNodes: RenderNode[]) => void;
+  fitView: (visibleNodes: Placed[]) => void;
+  /**
+   * Called after every pan or zoom. The tree draws its whole forest up
+   * front and ignores this; the merged graph viewer draws only what is on
+   * screen, so it has to know when "on screen" changes.
+   */
+  onChange: (listener: () => void) => void;
 }
 
 export function createViewport(svg: SVGSVGElement, viewportG: SVGGElement): Viewport {
   const view = { x: 36, y: 36, k: 1 };
+  const listeners: (() => void)[] = [];
   const clamp = (v: number, a: number, b: number) => Math.max(a, Math.min(b, v));
   const applyTransform = () => {
     viewportG.setAttribute('transform', `translate(${view.x},${view.y}) scale(${view.k})`);
+    for (const listener of listeners) listener();
   };
 
   svg.addEventListener('wheel', (e) => {
@@ -79,7 +92,7 @@ export function createViewport(svg: SVGSVGElement, viewportG: SVGGElement): View
     applyTransform();
   };
 
-  const fitView = (visibleNodes: RenderNode[]) => {
+  const fitView = (visibleNodes: Placed[]) => {
     if (!visibleNodes.length) return;
     let minX = Infinity;
     let minY = Infinity;
@@ -100,5 +113,9 @@ export function createViewport(svg: SVGSVGElement, viewportG: SVGGElement): View
     applyTransform();
   };
 
-  return { view, clamp, applyTransform, zoomStep, fitView };
+  const onChange = (listener: () => void) => {
+    listeners.push(listener);
+  };
+
+  return { view, clamp, applyTransform, zoomStep, fitView, onChange };
 }

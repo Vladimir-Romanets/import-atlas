@@ -6,7 +6,7 @@ import { describe, expect, it } from 'vitest';
 
 /**
  * The build inlines the viewer's CSS, HTML and help fragments into
- * `src/render.generated.ts` / `helpContent.generated.ts` by wrapping each
+ * `src/report/render.generated.ts` / `helpContent.generated.ts` by wrapping each
  * source in backticks, so anything a template literal treats as syntax has to
  * be escaped on the way in. Get it wrong and the generated file either fails
  * to parse (loud) or silently loses characters (not loud at all) — an author
@@ -72,6 +72,8 @@ describe('inlined viewer sources', () => {
   const sources = [
     path.join(here, '..', 'render', 'render.css'),
     path.join(here, '..', 'render', 'render.html'),
+    path.join(here, '..', 'render', 'render.graph.css'),
+    path.join(here, '..', 'render', 'render.graph.html'),
     ...fs
       .readdirSync(path.join(here, '..', 'render', 'client', 'help'))
       .filter((name) => name.endsWith('.html'))

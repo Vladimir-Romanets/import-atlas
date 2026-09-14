@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { computeDupeImports } from '../dupeImports';
+import { computeDupeImports } from '../engine/dupeImports';
 import type { Edge, FileNode, ScanResult } from '../types';
 
 function file(id: string): FileNode {

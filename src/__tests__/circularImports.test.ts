@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { computeCircularImports } from '../circularImports';
+import { computeCircularImports } from '../engine/circularImports';
 import type { Edge, FileNode, Finding, ScanResult } from '../types';
 
 function file(id: string): FileNode {
