@@ -1,3 +1,10 @@
+# [0.15.0](https://github.com/Vladimir-Romanets/import-atlas/compare/v0.14.0...v0.15.0) (2026-09-15)
+
+
+### Features
+
+* recognize the merged hover-edge-raise feature for release ([#29](https://github.com/Vladimir-Romanets/import-atlas/issues/29)) ([877cdc7](https://github.com/Vladimir-Romanets/import-atlas/commit/877cdc7944befaacfc6b510b79fb7f18a7faaa12)), closes [#28](https://github.com/Vladimir-Romanets/import-atlas/issues/28) [#28](https://github.com/Vladimir-Romanets/import-atlas/issues/28)
+
 # [0.14.0](https://github.com/Vladimir-Romanets/import-atlas/compare/v0.13.1...v0.14.0) (2026-09-15)
 
 
