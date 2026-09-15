@@ -1,3 +1,10 @@
+## [0.13.1](https://github.com/Vladimir-Romanets/import-atlas/compare/v0.13.0...v0.13.1) (2026-09-15)
+
+
+### Bug Fixes
+
+* walk deep import chains without overflowing the call stack ([#25](https://github.com/Vladimir-Romanets/import-atlas/issues/25)) ([05fce41](https://github.com/Vladimir-Romanets/import-atlas/commit/05fce41c865a48bfd5a13fa46b449b51eada7629))
+
 # [0.13.0](https://github.com/Vladimir-Romanets/import-atlas/compare/v0.12.0...v0.13.0) (2026-09-14)
 
 
