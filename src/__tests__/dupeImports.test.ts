@@ -98,7 +98,7 @@ describe('computeDupeImports', () => {
   });
 
   it('does not count a deferred import against a static one from the same file', () => {
-    // The route-split shape: `import type { Props } from './Page'` next to
+    // The route-split shape: `import type { Props } from './Page'` beside
     // `lazy(() => import('./Page'))`. Two statements, but merging them is
     // exactly what must not happen — it would undo the code splitting.
     const scan = makeScan(

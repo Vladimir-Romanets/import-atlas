@@ -1,24 +1,19 @@
 /**
- * Behaves like `JSON.stringify(value)` — no replacer, no indentation — but
- * never recurses over the object/array nesting. `reportPage.ts` embeds the
- * whole render payload this way, and that payload can nest thousands of
- * levels deep on a project with a long import chain — a depth the
- * native `JSON.stringify` cannot walk
- * without exhausting the call stack, even though `JSON.parse` (and so the
- * browser reading the result back) walks it iteratively without
- * complaint.
+ * `JSON.stringify(value)` — no replacer, no indentation — without recursing
+ * over the nesting. `reportPage.ts` embeds the render payload this way, and
+ * a long import chain nests it thousands of levels deep: further than the
+ * native `JSON.stringify` can walk without exhausting the call stack, even
+ * though `JSON.parse` reads the result back iteratively without complaint.
  *
- * Nesting is walked with an explicit stack of frames, one per open
- * object/array; formatting a single scalar — string escaping, number/
- * boolean/null text — is still delegated to the native `JSON.stringify`,
- * since that call is one frame deep whatever the scalar's own size.
+ * Nesting is walked with an explicit stack, one frame per open
+ * object/array; formatting a scalar is still left to the native
+ * `JSON.stringify`, one frame deep whatever the scalar's size.
  *
- * Matches `JSON.stringify`'s handling of values a JSON document can't
- * represent: an object drops a key whose value is `undefined`, a function,
- * or a symbol; an array turns the same values into `null` instead of
- * dropping the slot. A cycle throws a `TypeError`, as it does natively.
- * `toJSON()` methods, replacer functions and indentation are not
- * supported — nothing under `RenderData`/`GraphRenderData` needs them.
+ * Matches `JSON.stringify` on values JSON can't represent: an object drops
+ * a key whose value is `undefined`, a function or a symbol; an array turns
+ * the same into `null`. A cycle throws a `TypeError`, as natively.
+ * `toJSON()`, replacers and indentation are unsupported — nothing under
+ * `RenderData`/`GraphRenderData` needs them.
  */
 export function stringifyDeep(root: unknown): string {
   // A scalar (or null) at the top level needs no stack at all.
@@ -39,13 +34,12 @@ export function stringifyDeep(root: unknown): string {
   const out: string[] = [];
   const stack: Frame[] = [];
 
-  // The objects whose frames are currently open, kept in step with `stack`
-  // — the ancestors of the value being written, and nothing else. A value
-  // that is its own ancestor is a cycle and cannot be serialized; one that
-  // merely appears twice in different branches is fine, and `JSON.stringify`
-  // writes it out twice. Anything coarser than "ancestors" (a set of every
-  // object ever seen, say) would reject the second kind too, and the render
-  // payload does share sub-objects between branches.
+  // Ancestors of the value being written — the objects whose frames are
+  // open, kept in step with `stack`. A value that is its own ancestor is a
+  // cycle; one merely appearing twice in different branches is fine, and
+  // `JSON.stringify` writes it out twice. Anything coarser (every object
+  // ever seen, say) would reject the second kind, which the render payload
+  // relies on.
   const openObjects = new Set<object>();
 
   function frameFor(value: object): Frame {
@@ -59,9 +53,9 @@ export function stringifyDeep(root: unknown): string {
     };
   }
 
-  // Opens a nested object/array (pushing a frame for the loop below to
-  // resume later) or, for a scalar, writes its full text in one native
-  // call and returns it — nothing further to descend into.
+  // Opens a nested object/array, pushing a frame for the loop below to
+  // resume; or, for a scalar, writes its text in one native call and
+  // returns it — nothing to descend into.
   function open(value: unknown): string | undefined {
     if (value !== null && typeof value === "object") {
       if (openObjects.has(value)) {
@@ -72,9 +66,9 @@ export function stringifyDeep(root: unknown): string {
       openObjects.add(value);
       return undefined;
     }
-    // undefined/function/symbol here means an array slot — an object key
-    // with one of those values is filtered out before `open` is ever
-    // called for it. JSON.stringify turns such an array slot into `null`.
+    // undefined/function/symbol here means an array slot — such an object
+    // key is filtered out before `open` sees it. JSON.stringify turns
+    // these slots into `null`.
     const text = JSON.stringify(value);
     const scalar = text === undefined ? "null" : text;
     out.push(scalar);
@@ -98,9 +92,8 @@ export function stringifyDeep(root: unknown): string {
       continue;
     }
 
-    // Object: skip keys JSON.stringify itself would drop, rather than
-    // emitting them and pruning after — an object with only such keys
-    // must close with "{}", not a dangling comma.
+    // Skip keys JSON.stringify would drop rather than emit and prune after
+    // — an object of only such keys must close as "{}", not on a comma.
     let descended = false;
     while (frame.index < frame.keys.length) {
       const key = frame.keys[frame.index++];

@@ -13,9 +13,9 @@ export interface Viewport {
   zoomStep: (factor: number) => void;
   fitView: (visibleNodes: Placed[]) => void;
   /**
-   * Called after every pan or zoom. The tree draws its whole forest up
-   * front and ignores this; the merged graph viewer draws only what is on
-   * screen, so it has to know when "on screen" changes.
+   * Called after every pan or zoom. The tree draws its whole forest up front
+   * and ignores this; the merged viewer draws only what is on screen, so it
+   * has to know when "on screen" changes.
    */
   onChange: (listener: () => void) => void;
 }

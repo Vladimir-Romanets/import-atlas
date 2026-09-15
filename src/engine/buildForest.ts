@@ -4,9 +4,8 @@ import { summarizeExternals } from "../utils/summarize";
 import type { ScanResult, TreeNode } from "../types";
 
 /**
- * Builds the "you imported this file N times" hint for a parent whose
- * children list contains repeats of the same childId (e.g. a value import
- * plus a type-only import, or two separate re-export lines from one file).
+ * The "you imported this file N times" hint for a parent whose children list
+ * repeats a childId (a value import plus a type-only one, say).
  */
 function summarizeDupeImports(
   childIds: string[],
@@ -23,10 +22,9 @@ function summarizeDupeImports(
 }
 
 /**
- * What one occurrence's importer asked of it: the name(s) the incoming edge
- * requests. `'*'` when that can't be pinned down — a namespace import, a
- * dynamic `import()`, a `require()`, an `export * from`, or an entry point,
- * which nothing in the scan imports at all.
+ * The name(s) an occurrence's incoming edge requests. `'*'` when that can't
+ * be pinned down — a namespace/dynamic import, a `require()`, an
+ * `export * from`, or an entry point, which nothing in the scan imports.
  */
 type Request = string[] | '*';
 
@@ -35,39 +33,34 @@ type Request = string[] | '*';
  * per entry point.
  *
  * A file reached from more than one place is expanded once and referenced
- * everywhere else (`ref` naming the renderId of that one expansion),
- * because expanding every occurrence in full would blow the tree up
- * combinatorially. A back-edge to a file still on the current path becomes
- * a reference flagged as a circular import (the Findings tab has the full,
- * whole-graph cycle list — this is only the first back-edge this one DFS
- * path happens to hit).
+ * everywhere else (`ref` naming that expansion's renderId), since expanding
+ * every occurrence would blow the tree up combinatorially. A back-edge to a
+ * file still on the current path becomes a reference flagged as a circular
+ * import — only the first back-edge this DFS path hits; the Findings tab
+ * has the whole-graph cycle list.
  *
- * Barrels are the exception to "expanded once". What a barrel's children
- * ARE depends on what its importer asked for: `import { Button } from
- * 'components/button'` reaches exactly one of the barrel's re-exports, and
- * showing the other twenty alongside it describes the barrel file rather
- * than the path the reader is following. So a barrel is expanded once per
- * distinct request made of it, and each occurrence carries only the
- * children that request actually reaches. Every other file still expands
- * exactly once — what it contains doesn't depend on how it was asked for.
+ * Barrels are the exception. What a barrel's children ARE depends on what
+ * was asked of it: `import { Button } from 'components/button'` reaches one
+ * re-export, and showing the other twenty describes the barrel rather than
+ * the path being followed. So a barrel is expanded once per distinct
+ * request, each occurrence carrying only the children that request reaches.
  */
 export function buildForest(scanResult: ScanResult): TreeNode[] {
   const childrenOf: Record<string, string[]> = {};
-  // Keyed by `edgeKey(from, to)`. What the edge exposes onward (the viewer's
-  // node label, and what a barrel offers its own consumers) and what it
-  // requests of the target (which becomes that target's own request context).
+  // Both keyed by `edgeKey(from, to)`: what the edge exposes onward (the
+  // viewer's node label) and what it requests of the target (which becomes
+  // that target's own request context).
   const edgeExposes: Record<string, Request> = {};
   const edgeRequests: Record<string, Request> = {};
-  // A pair linked by at least one plain `import` is unconditional usage by
-  // the importing file itself, whatever else it may also re-export.
+  // One plain `import` on a pair is unconditional usage by the importing
+  // file, whatever else it may also re-export.
   const hasPlainImportEdge: Record<string, boolean> = {};
-  // A file that re-exports anything: the only kind whose children depend on
-  // what was asked of it.
+  // A file that re-exports anything — the only kind whose children depend
+  // on what was asked of it.
   const isBarrel: Record<string, boolean> = {};
-  // Whether a pair is reached only lazily. A pair linked by several
-  // statements counts as lazy only when every one of them is: one plain
-  // `import` alongside a dynamic one still loads the file eagerly, and
-  // drawing that link as deferred would say the opposite of the truth.
+  // Lazy only when EVERY statement linking the pair is: one plain `import`
+  // beside a dynamic one still loads the file eagerly, and a dotted line
+  // would say the opposite.
   const edgeDeferred: Record<string, boolean> = {};
 
   for (const edge of scanResult.edges) {
@@ -81,10 +74,9 @@ export function buildForest(scanResult: ScanResult): TreeNode[] {
   }
 
   /**
-   * The identity a node is deduplicated under. For a barrel that's the file
-   * plus the request that reached it, so two importers asking for different
-   * names get two expansions instead of sharing one that shows the union.
-   * For everything else it's just the file.
+   * The identity a node is deduplicated under: the file, or — for a barrel
+   * — the file plus the request that reached it, so two importers asking
+   * for different names get two expansions rather than one showing both.
    */
   function keyOf(fileId: string, request: Request): string {
     if (!isBarrel[fileId]) return fileId;
@@ -110,10 +102,9 @@ export function buildForest(scanResult: ScanResult): TreeNode[] {
   const canonicalRenderId: Record<string, string> = {};
   const nodeOf: Record<string, TreeNode> = {};
   const addedChildrenOf: Record<string, Set<string>> = {};
-  // Files whose expansion is still open on the current path, mapped to the
-  // key of the occurrence doing the expanding — so a back-edge can point at
-  // the node it closes the loop with, even when that node is one of several
-  // occurrences of the file.
+  // Files still open on the current path, mapped to the key of the
+  // occurrence expanding them — so a back-edge can point at the exact node
+  // it closes the loop with, of however many the file has.
   const openKeyOf = new Map<string, string>();
   let uid = 0;
   const nextRenderId = () => `r${uid++}`;
@@ -127,8 +118,8 @@ export function buildForest(scanResult: ScanResult): TreeNode[] {
     parentId: string | null = null,
   ): TreeNode {
     const file = scanResult.nodes[fileId];
-    // A root has no incoming edge to read a label off, so nothing was asked
-    // of it by name — and nothing deferred it, either.
+    // A root has no incoming edge: nothing asked for it by name, and
+    // nothing deferred it either.
     const parentKey = parentId !== null ? edgeKey(parentId, fileId) : null;
     const exposes = parentKey !== null ? edgeExposes[parentKey] : undefined;
     return {
@@ -149,10 +140,9 @@ export function buildForest(scanResult: ScanResult): TreeNode[] {
   }
 
   /**
-   * Returns the one real (non-ref) node for `key`, creating it on first
-   * call and reusing it forever after. Creating it is what claims that
-   * occurrence's canonical position: from then on every other edge
-   * resolving to the same key becomes a `ref` pointing at this renderId.
+   * The one real (non-ref) node for `key`, created on first call and reused
+   * after. Creating it claims that occurrence's canonical position: every
+   * later edge resolving to the same key becomes a `ref` to this renderId.
    */
   function ensureNode(
     fileId: string,
@@ -165,8 +155,7 @@ export function buildForest(scanResult: ScanResult): TreeNode[] {
 
     const renderId = nextRenderId();
     canonicalRenderId[key] = renderId;
-    // Only the children this occurrence actually shows can be duplicated
-    // within it, so the hint is built from those.
+    // Only the children this occurrence shows can be duplicated within it.
     const childIds = (childrenOf[fileId] || []).filter((childId) =>
       requestReaches(fileId, childId, request),
     );
@@ -181,27 +170,20 @@ export function buildForest(scanResult: ScanResult): TreeNode[] {
   }
 
   /**
-   * Depth-first expansion of one occurrence, in the order its imports
-   * appear.
+   * Depth-first expansion of one occurrence, in import order.
    *
-   * Written with an explicit stack rather than recursion, since a real
-   * project's longest import chain is a poor thing to bet the call stack
-   * on. What lets a frame per occurrence stand in
-   * for a call frame: `ensureNode` returns the same `TreeNode` object every
-   * time it is asked for a given key, so a child can be pushed into its
-   * parent's `children` array the moment the walk reaches it — before that
-   * child's own subtree is expanded — and the array still ends up holding
-   * the fully-expanded node once the child's frame is done, because it is
-   * the same object being mutated in place, not a fresh one returned
-   * later. That is what a recursive `node.children.push(visit(...))` got
-   * for free from evaluation order.
+   * Explicit stack rather than recursion: a real project's longest import
+   * chain is a poor thing to bet the call stack on. What makes a frame
+   * stand in for a call frame is that `ensureNode` returns the same
+   * `TreeNode` object for a given key, so a child can be pushed into its
+   * parent's `children` the moment the walk reaches it and still end up
+   * fully expanded — the same object, mutated in place, rather than one
+   * returned later as `node.children.push(visit(...))` would have been.
    *
-   * The one thing recursion would otherwise still be trusted to do
-   * correctly is `openKeyOf.delete(fileId)`, which has to run exactly when
-   * a frame's children are exhausted — that boundary is what separates "on
-   * the path currently being walked" (a circular-import marker) from
-   * "already finished" (an ordinary reference). Here it happens in the one
-   * place a frame is popped, so it can't be skipped or duplicated.
+   * `openKeyOf.delete(fileId)` must run exactly when a frame's children run
+   * out: that boundary separates "on the path being walked" (a circular-
+   * import marker) from "already finished" (an ordinary reference). Here it
+   * sits in the one place a frame is popped.
    */
   function visit(fileId: string, request: Request, parentId: string | null): void {
     interface Frame {
@@ -240,9 +222,8 @@ export function buildForest(scanResult: ScanResult): TreeNode[] {
       }
 
       const childId = frame.childIds[frame.next++];
-      // The same pair can be linked by several statements (a value import
-      // plus a type-only one, say). They are one child node, with the
-      // repetition called out in this node's `hint`.
+      // Several statements linking the same pair are one child node; the
+      // repetition is called out in this node's `hint`.
       if (frame.added.has(childId)) continue;
       frame.added.add(childId);
       if (!requestReaches(frame.fileId, childId, frame.request)) continue;
@@ -274,22 +255,19 @@ export function buildForest(scanResult: ScanResult): TreeNode[] {
         continue;
       }
 
-      // Descend: claim the child's canonical position and its slot in this
-      // node's children now, then push a frame to expand it. `childNode`
-      // is the same object `frame.node.children` now holds, so filling in
-      // its own children later (as its frame runs) is all this slot needs.
+      // Claim the child's canonical position and its slot here, then push
+      // a frame to expand it. `childNode` is the same object the children
+      // array now holds, so its frame filling it in later is enough.
       const childNode = push(childId, childRequest, frame.fileId);
       frame.node.children.push(childNode);
     }
   }
 
-  // Entry points own their canonical position: reserve a root node for each
-  // one BEFORE any traversal. Otherwise an entry that some earlier entry
-  // happens to import would be expanded in place as that entry's descendant,
-  // and the top-level pass would then hand back the very same object as a
-  // forest root too — putting one node, and its renderId, in the tree twice.
-  // With the roots reserved, such a cross-entry import resolves to a compact
-  // `ref` back to the imported entry's own root instead.
+  // Reserve a root node per entry BEFORE any traversal. Otherwise an entry
+  // imported by an earlier one would be expanded in place as its
+  // descendant, and the top-level pass would hand back that same object as
+  // a forest root too — one node, and its renderId, twice in the tree. With
+  // the roots reserved, such a cross-entry import becomes a `ref` instead.
   const entryIds = [...new Set(scanResult.entries)];
   const roots = entryIds.map((id) => ensureNode(id, keyOf(id, '*'), '*', null));
   for (const id of entryIds) visit(id, '*', null);

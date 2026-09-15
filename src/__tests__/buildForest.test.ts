@@ -468,12 +468,10 @@ describe('buildForest — a barrel shows what its importer asked for', () => {
 
 describe('buildForest — openKeyOf boundary (recursion-to-iteration regression)', () => {
   it('treats the same file as a cycle marker on one branch and a plain reference on a later, finished one', () => {
-    // a <-> shared is a real cycle, closed while both are still open on the
-    // walk. b reaches shared afterwards, once a's whole branch — a and
-    // shared both — has finished. That later occurrence must read as an
-    // ordinary reference, not another cycle marker: exactly the boundary
-    // `openKeyOf.delete` draws when a frame's children run out, which the
-    // explicit-stack rewrite has to get right without recursion's help.
+    // a <-> shared is a real cycle, closed while both are open on the walk.
+    // b reaches shared afterwards, once a's whole branch has finished, and
+    // that later occurrence must read as an ordinary reference — the
+    // boundary `openKeyOf.delete` draws when a frame's children run out.
     const scan = makeScan(
       ['app/entry.ts'],
       ['app/entry.ts', 'app/a.ts', 'app/b.ts', 'app/shared.ts'],
@@ -517,8 +515,8 @@ describe('buildForest — deep chains (stack-depth regression)', () => {
       forest = buildForest(scan);
     }).not.toThrow();
 
-    // The chain is linear, so walking it down needs no recursion of its
-    // own — asserting on what came back, not just the absence of a throw.
+    // The chain is linear, so walking it down needs no recursion — this
+    // asserts on what came back, not just the absence of a throw.
     let node = forest[0];
     expect(node.fileId).toBe('src/f0.ts');
     expect(node.ref).toBeNull();

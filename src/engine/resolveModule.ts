@@ -38,10 +38,9 @@ export interface ResolveResult {
 }
 
 /**
- * Resolves an import specifier found in `fromFile` to an absolute file path.
- * Relative specifiers are resolved against the importing file's directory;
- * aliased specifiers are matched against tsconfig `paths`; anything else is
- * treated as an external (node_modules) package and never recursed into.
+ * Resolves a specifier found in `fromFile` to an absolute path: relative
+ * ones against the importing file's directory, aliased ones against
+ * tsconfig `paths`. Anything else is an external package, never followed.
  */
 export function resolveSpecifier(
   specifier: string,
@@ -83,8 +82,8 @@ export function resolveSpecifier(
       }
     }
 
-    // No `paths` alias matched (or none configured) — TypeScript still resolves
-    // non-relative specifiers directly against an explicit `baseUrl`.
+    // No `paths` alias matched, but TypeScript still resolves non-relative
+    // specifiers against an explicit `baseUrl`.
     if (tsconfig.baseUrlExplicit) {
       const abs = path.resolve(tsconfig.baseUrl, specifier);
       const resolved = tryResolveFile(abs);

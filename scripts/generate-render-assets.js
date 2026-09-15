@@ -1,17 +1,15 @@
 'use strict';
 
-// Bundles the standalone HTML/CSS/JS sources for the graph viewer
-// (src/render/*) into string constants that render.ts embeds into the
-// generated single-file HTML output. Runs as a build step so the sources
-// can be edited as plain .css/.html files and real TypeScript ES modules
-// instead of TS template literals. The client script (src/render/render.client.ts
-// and the modules it imports from src/render/client/*.ts) is type-stripped,
-// bundled, and minified with esbuild into a single IIFE, since the generated
-// HTML is a self-contained file opened directly (e.g. via file://) and can't
-// load real <script type="module"> files from disk. esbuild only strips
-// types — `npm run typecheck` (tsconfig.browser.json) is what actually
-// checks them. Re-run via `npm run build` / `npm run dev` / `npm run
-// typecheck` whenever src/render/* changes.
+// Bundles the viewer sources (src/render/*) into string constants that
+// render.ts embeds into the generated single-file HTML. A build step, so the
+// sources stay plain .css/.html files and real TypeScript ES modules rather
+// than TS template literals.
+//
+// The client script is type-stripped, bundled and minified into one IIFE:
+// the generated HTML is opened directly (file://) and can't load real
+// <script type="module"> files from disk. esbuild only strips types —
+// `npm run typecheck` (tsconfig.browser.json) is what checks them. Re-run
+// via `npm run build` / `dev` / `typecheck` whenever src/render/* changes.
 
 const fs = require('fs');
 const path = require('path');
@@ -26,17 +24,16 @@ function readAsset(name) {
   return fs.readFileSync(path.join(RENDER_DIR, name), 'utf8');
 }
 
-// Escapes `source` so it survives being wrapped in backticks in the generated
-// .ts files. Backslashes go first: escaping them after the other two would
-// double up the backslashes those steps just introduced. A lone `$` is left
-// alone — only `${` opens an interpolation.
+// Escapes `source` so it survives being wrapped in backticks in the
+// generated .ts files. Backslashes go first: escaping them last would double
+// up the ones the other two steps introduced. A lone `$` is left alone —
+// only `${` opens an interpolation.
 function toTemplateLiteral(source) {
   return source.replace(/\\/g, '\\\\').replace(/`/g, '\\`').replace(/\$\{/g, '\\${');
 }
 
-// Findings groups reference a help fragment by slug, which is just their
-// group key (e.g. "dead-export-low"). A group whose slug has no matching
-// file here just gets no help icon.
+// Findings groups reference a help fragment by slug, which is their group
+// key ("dead-export-low"). A slug with no matching file gets no help icon.
 function writeHelpContent() {
   const entries = fs.existsSync(HELP_DIR)
     ? fs
@@ -61,10 +58,9 @@ ${entries.join('\n')}
   fs.writeFileSync(HELP_OUT_FILE, output);
 }
 
-// Each viewer is bundled separately rather than into one script that
-// branches at runtime: a report only ever renders one of them, and a reader
-// downloading a self-contained HTML file should not be carrying the other
-// viewer's code around inside it.
+// Each viewer is bundled separately rather than into one script branching at
+// runtime: a report renders only one of them, and a self-contained HTML file
+// should not carry the other viewer's code around inside it.
 async function bundleClient(entry) {
   const bundle = await esbuild.build({
     entryPoints: [path.join(RENDER_DIR, entry)],
@@ -78,8 +74,8 @@ async function bundleClient(entry) {
 }
 
 async function main() {
-  // Runs before the esbuild bundles below so the client scripts can import
-  // from it like a normal module.
+  // Before the esbuild bundles below, so the client scripts can import from
+  // it like a normal module.
   writeHelpContent();
 
   const script = toTemplateLiteral(await bundleClient('render.client.ts'));
@@ -87,8 +83,8 @@ async function main() {
 
   const css = toTemplateLiteral(readAsset('render.css'));
   const html = toTemplateLiteral(readAsset('render.html'));
-  // The graph viewer's stylesheet extends the shared one instead of
-  // restating it, so it is emitted appended rather than alone.
+  // The graph viewer's stylesheet extends the shared one rather than
+  // restating it, so it is emitted appended.
   const graphCss = toTemplateLiteral(
     `${readAsset('render.css')}\n${readAsset('render.graph.css')}`
   );
@@ -114,7 +110,7 @@ export const SCRIPT_GRAPH = \`${graphScript}\`;
 }
 
 // Guarded so the unit test can require this file for `toTemplateLiteral`
-// without kicking off a full esbuild run as a side effect.
+// without kicking off a full esbuild run.
 if (require.main === module) {
   main().catch((err) => {
     console.error(err);

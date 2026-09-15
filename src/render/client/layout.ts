@@ -1,10 +1,9 @@
 import { ROW_H, COL_W } from './constants';
 import type { RenderNode } from './types';
 
-// Truncates by estimated rendered width rather than raw character count.
-// Labels are often ALL_CAPS/snake_case identifiers rendered bold — those
-// glyphs are noticeably wider than lowercase text, so a flat char-count
-// cutoff (e.g. 28) undershoots and lets wide labels overflow the node box.
+// Truncation goes by estimated rendered width, not character count: labels
+// are often bold ALL_CAPS/snake_case identifiers, whose glyphs are wide
+// enough that a flat cutoff lets them overflow the node box.
 const WIDE_CHAR = /[A-Z0-9_]/;
 const MAX_WIDTH = 28;
 
@@ -38,18 +37,14 @@ export function buildLayout(
 ): number {
   let cursor = startY;
 
-  // Written with an explicit stack rather than recursion: the tree can
-  // nest one level per import-chain link, and this
-  // runs on every render, not just once at load. A node is pushed to
-  // `nodes` (and its edge from its parent recorded) the moment the walk
-  // reaches it — the same order the recursive version pushed in — but its
-  // own `y` is only known once its children have theirs. `enter` returns
-  // that `y` directly when there is nothing to expand (a leaf, or
-  // collapsed); otherwise it pushes a frame and returns nothing, and the
-  // `y` is filled in — centred between the first and last child's, exactly
-  // what the original read out of `ys[0]`/`ys[ys.length-1]` — once that
-  // frame is popped, which is also when the parent frame's own first/last
-  // is updated.
+  // Explicit stack rather than recursion: the tree nests one level per
+  // import-chain link, and this runs on every render, not once at load. A
+  // node is pushed to `nodes` (with its parent edge) the moment the walk
+  // reaches it, but its `y` is only known once its children have theirs.
+  // `enter` returns that `y` directly when there is nothing to expand (a
+  // leaf, or collapsed); otherwise it pushes a frame, and the `y` —
+  // centred between the first and last child's — is filled in when that
+  // frame is popped, which is also when the parent's first/last updates.
   interface Frame {
     node: RenderNode;
     index: number;
@@ -73,8 +68,8 @@ export function buildLayout(
     node.x = depth * COL_W;
     nodes.push(node);
     if (parent) edges.push([parent, node]);
-    // A reference counts as expandable too, once its children have been
-    // copied in — it is only a leaf while nobody has opened it.
+    // A reference is expandable too, once its children have been copied in
+    // — it is a leaf only while nobody has opened it.
     const expanded = node.children.length > 0 && !collapsed.has(node.renderId);
     if (!expanded) {
       node.y = cursor;
@@ -94,8 +89,7 @@ export function buildLayout(
         if (y !== undefined) record(frame, y);
         continue;
       }
-      // Centred on its children: the midpoint between the first one's row
-      // and the last one's.
+      // Centred on its children: midway between the first row and the last.
       frame.node.y = (frame.firstY + frame.lastY) / 2;
       const finishedY = frame.node.y;
       stack.pop();

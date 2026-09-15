@@ -9,8 +9,8 @@ export interface ResolvedTsConfig {
 }
 
 /**
- * Loads tsconfig.json (following `extends`) and resolves `paths`/`baseUrl`
- * to an absolute directory, matching how TypeScript itself resolves them.
+ * Loads tsconfig.json (following `extends`), resolving `paths`/`baseUrl` to
+ * an absolute directory the way TypeScript itself does.
  */
 export function loadTsConfig(
   explicitPath: string | undefined,

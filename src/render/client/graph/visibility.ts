@@ -10,15 +10,13 @@ export interface VisibleSet {
  * How many importers of a file the canvas isn't showing — what the fan-in
  * badge has left to offer, and what it says on hover.
  *
- * A file reached from above always has the importer that opened it on
- * screen, so a badge there counts only what the reader has just done — and
- * since most files are reached that way, the count used to sit beside
- * nearly every box saying "1". The same is true of a barrel whose twelve
- * importers are all drawn: the twelve lines arriving at it say who they are
- * better than a number does.
+ * Counting only hidden importers is what keeps the badge off nearly every
+ * box: a file reached from above already has the importer that opened it on
+ * screen, and a barrel with all twelve importers drawn says who they are
+ * through the twelve lines arriving at it.
  *
- * A file importing itself is nobody else's importer, and is excluded here
- * the same way `GraphNode.fanIn` excludes it.
+ * A self-import is nobody else's importer, and is excluded here as
+ * `GraphNode.fanIn` excludes it.
  */
 export function hiddenImporterCount(
   id: string,
@@ -33,17 +31,15 @@ export function hiddenImporterCount(
 }
 
 /**
- * The same count in the other direction: how many of a file's imports the
- * canvas isn't showing, and so whether opening it would draw anything.
+ * The same count the other way: how many of a file's imports the canvas
+ * isn't showing, and so whether opening it would draw anything.
  *
- * Asking the graph "does this file import anything" is not the same
- * question, and answering that one instead is how a click comes to spend a
- * whole relayout marking a node open without a single box appearing — the
- * files it imports were already on screen, reached from somewhere else.
+ * "Does this file import anything" is a different question, and answering
+ * that one instead is how a click spends a whole relayout marking a node
+ * open without a box appearing — its imports were already on screen.
  *
- * A file importing itself imports nothing new by definition, and is
- * excluded here the same way `GraphNode.fanOut` excludes it — which is what
- * keeps this in step with the chevron, drawn from that same count.
+ * A self-import brings nothing new, and is excluded here as
+ * `GraphNode.fanOut` excludes it, keeping this in step with the chevron.
  */
 export function hiddenImportCount(
   id: string,
@@ -77,16 +73,13 @@ export interface Visibility {
 /**
  * What the canvas shows, out of a graph far too large to draw at once.
  *
- * The rule is deliberately asymmetric, and it is what makes the merged view
- * readable: a node becomes visible by being *opened into* from something
- * already visible, but an edge is drawn as soon as BOTH its ends are on
- * screen — whether or not the reader is the one who opened them.
+ * The rule is asymmetric on purpose: a node becomes visible by being
+ * *opened into* from something already visible, but an edge is drawn as
+ * soon as BOTH its ends are on screen, whoever opened them.
  *
- * That second half is the whole point of this viewer. Open two sibling
- * features that both use one barrel and the barrel appears once, with both
- * edges drawn, including the one from the feature you didn't expand
- * through. The shared dependency is the picture, rather than something to
- * be reconstructed from two identical boxes in different branches.
+ * That second half is the point of this viewer. Open two sibling features
+ * using one barrel and the barrel appears once, with both edges drawn —
+ * including the one from the feature you didn't expand through.
  */
 export function createVisibility(
   graph: GraphData,
@@ -119,8 +112,8 @@ export function createVisibility(
   const collapseAll = (): void => {
     expanded.clear();
     importersShown.clear();
-    // Entry points are the one thing that is never closed: with them shut
-    // the canvas would be empty, with no way back in.
+    // Entries are never closed: with them shut the canvas would be empty,
+    // and there would be no way back in.
     for (const id of graph.entries) expanded.add(id);
   };
 
@@ -137,8 +130,7 @@ export function createVisibility(
     }
 
     // One queue for both directions: a node pulled in as an importer can
-    // itself be one whose imports or importers are open, so this has to
-    // run to a fixpoint rather than in two passes.
+    // itself be open, so this runs to a fixpoint, not in two passes.
     for (let i = 0; i < queue.length; i++) {
       const id = queue[i];
       if (expanded.has(id)) {
@@ -168,9 +160,9 @@ export function createVisibility(
     if (index.nodeById[id] === undefined) return false;
     if (graph.entries.indexOf(id) !== -1) return true;
 
-    // Shortest way in, walked backwards over the importers: with several
-    // routes to the same file, the fewest nodes opened is the least the
-    // reader has to take in to see why it is on screen.
+    // Shortest way in, walked backwards over the importers: of several
+    // routes, the one opening fewest nodes is the least a reader has to
+    // take in to see why the file is on screen.
     const cameFrom = new Map<string, string>();
     const seen = new Set<string>([id]);
     const queue = [id];
@@ -191,8 +183,8 @@ export function createVisibility(
     }
 
     if (landed === null) return false;
-    // Everything from the entry down to `id`'s importer has to be open for
-    // `id` itself to be reached; `id` is left as the reader finds it.
+    // Everything from the entry down to `id`'s importer must be open for
+    // `id` to be reached; `id` itself is left as the reader finds it.
     for (let step: string | undefined = landed; step !== undefined && step !== id; step = cameFrom.get(step)) {
       expanded.add(step);
     }

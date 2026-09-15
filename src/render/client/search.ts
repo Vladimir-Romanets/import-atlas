@@ -1,8 +1,7 @@
 /**
  * All the search box reads off a node. The tree keys these by `renderId`
- * (one per occurrence) and the merged graph by file id (one per file) — in
- * both cases the key is what `jumpTo` is handed back, so neither viewer
- * needs its own copy of this.
+ * (one per occurrence), the merged graph by file id — either way the key is
+ * what `jumpTo` gets back, so neither viewer needs its own copy.
  */
 export interface Searchable {
   label: string;
@@ -14,15 +13,14 @@ export interface SearchOptions {
   searchInput: HTMLInputElement;
   searchHint: HTMLElement;
   /**
-   * Goes to a match. `committed` separates the two ways this is reached:
-   * false while the reader is still typing, true once they press Enter.
+   * Goes to a match. `committed` is false while the reader is still typing,
+   * true once they press Enter.
    *
-   * Every keystroke is a query of its own, and the half-typed ones match
-   * files nobody asked for — type `index` and the third keystroke finds a
-   * barrel. A viewer that opens something to reach a match must do that
-   * only when `committed`, or a walk across the keyboard leaves a trail of
-   * opened files behind it. Showing a match that is already on screen is
-   * fine either way.
+   * Every keystroke is a query of its own, and half-typed ones match files
+   * nobody asked for — type `index` and the third keystroke finds a barrel.
+   * So a viewer may only *open* something to reach a match when
+   * `committed`, or a walk across the keyboard leaves a trail of opened
+   * files. Showing a match already on screen is fine either way.
    */
   jumpTo: (id: string, committed: boolean) => void;
 }
@@ -50,7 +48,7 @@ export function createSearch({ byId, searchInput, searchHint, jumpTo }: SearchOp
     }
     matches = computeMatches();
     // Left before the first match, not on it: the Enter below steps forward
-    // before it jumps, and the reader has not been taken anywhere yet.
+    // before jumping, and the reader hasn't been taken anywhere yet.
     matchIdx = -1;
     searchHint.textContent = matches.length ? `${matches.length} match${matches.length>1?'es':''} — press Enter to jump` : 'No matches';
     if (matches.length) jumpTo(matches[0], false);

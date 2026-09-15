@@ -117,8 +117,8 @@ program
   .option('-c, --tsconfig <path>', 'explicit tsconfig.json path')
   .option('-e, --exclude <regex...>', 'skip files whose root-relative path matches this regex')
   // Higher than the tree's cap: the merged view draws a file once however
-  // many places import it, so it stays legible at a size the tree would
-  // have turned into thousands of repeated boxes.
+  // many places import it, so it stays legible where the tree would have
+  // thousands of repeated boxes.
   .option('--max-files <n>', 'stop after scanning this many files', (v) => parseInt(v, 10), 10000)
   .option(
     '--max-cycle-length <n>',
@@ -168,10 +168,9 @@ program
   .option('-r, --root <dir>', 'project root (relative paths & tsconfig resolution)', process.cwd())
   .option('-c, --tsconfig <path>', 'explicit tsconfig.json path')
   .option('-e, --exclude <regex...>', 'skip files whose root-relative path matches this regex')
-  // The tree's cap rather than the merged viewer's: one scan feeds every
-  // report, so the lowest cap among them is the one that has to hold. A tree
-  // is what gives out first — it repeats a shared file once per place
-  // reaching it.
+  // The tree's cap, not the merged viewer's: one scan feeds every report,
+  // so the lowest cap has to hold — and the tree gives out first, repeating
+  // a shared file once per place reaching it.
   .option('--max-files <n>', 'stop after scanning this many files', (v) => parseInt(v, 10), 4000)
   .option(
     '--max-cycle-length <n>',
@@ -194,11 +193,10 @@ program
       maxFiles: opts.maxFiles
     });
 
-    // Merged first, deliberately. The merged graph is the sturdier of the
-    // two — flat arrays of nodes and edges, rather than a tree that nests one
-    // level per import-chain link — so writing it first leaves the reader
-    // with something to open if the other throws. The rule to keep as
-    // reports are added is sturdiest first.
+    // Merged first, deliberately: it is the sturdier of the two — flat
+    // arrays of nodes and edges, not a tree nesting one level per
+    // import-chain link — so writing it first leaves something to open if
+    // the other throws. Sturdiest first, as reports are added.
     const graph = buildGraph(result);
     fs.writeFileSync(
       opts.outMerged,
@@ -221,8 +219,8 @@ program
         })
       );
     } catch (e) {
-      // Reported rather than thrown, because part of the job is already done
-      // and saying so is more use than a stack trace over a file that exists.
+      // Reported rather than thrown: part of the job is done, and saying so
+      // is more use than a stack trace over a file that exists.
       const message = e instanceof Error ? e.message : String(e);
       console.error(summary);
       console.error(`Wrote ${opts.outMerged}`);

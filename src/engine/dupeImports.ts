@@ -5,22 +5,19 @@ const RECOMMENDATION =
   "Consolidate the separate import/export statements pulling from this module into a single line.";
 
 /**
- * Flags every (importer, target) pair linked by more than one import/export
- * statement — a value import plus a type-only import, or two separate
- * re-export lines from the same file, say. Independent of `buildForest`'s
- * per-occurrence `hint` (`summarizeDupeImports`): this counts every such
- * pair in the whole graph, not just the ones visible from a given entry
- * point's tree.
+ * Every (importer, target) pair linked by more than one statement — a value
+ * import plus a type-only one, say. Independent of `buildForest`'s
+ * per-occurrence `hint`: this counts pairs across the whole graph, not just
+ * those visible from one entry point's tree.
  */
 export function computeDupeImports(scanResult: ScanResult): Finding[] {
   // The pair is carried in the value rather than parsed back out of the key
   // — see `edgeKey` for why decoding one is a trap.
   const pairs = new Map<string, { from: string; to: string; count: number }>();
   for (const edge of scanResult.edges) {
-    // A deferred import is not a statement that could be merged with the
-    // others: `lazy(() => import('./Page'))` alongside `import type { Props }
-    // from './Page'` is two different things asked of one module, and
-    // consolidating them would undo the code splitting.
+    // A deferred import can't be merged with the others: `lazy(() =>
+    // import('./Page'))` beside `import type { Props } from './Page'` is
+    // two things asked of one module, and merging undoes code splitting.
     if (edge.isDeferred) continue;
     const key = edgeKey(edge.from, edge.to);
     const pair = pairs.get(key);

@@ -91,12 +91,11 @@ describe('computeCircularImports', () => {
   });
 
   it('does not let a self-edge on the anchor short-circuit a multi-file cycle', () => {
-    // a<->b is the real 2-file cycle. a also imports itself, and a is the
-    // anchor (alphabetically first) — a BFS that doesn't skip self-edges
-    // finds a->a on its very first step and reports "a.ts -> a.ts" under a
-    // "2 files" label, silently dropping b from the output entirely, with
-    // no self-import row to compensate since a is already claimed by the
-    // multi-file component.
+    // a<->b is the real 2-file cycle; a also imports itself and is the
+    // anchor. A BFS that doesn't skip self-edges finds a->a on its first
+    // step and reports "a.ts -> a.ts" under a "2 files" label, dropping b
+    // entirely — and with no self-import row to compensate, a being already
+    // claimed by the multi-file component.
     const scan = makeScan(
       ['a.ts', 'b.ts'],
       [
@@ -157,10 +156,10 @@ describe('computeCircularImports', () => {
   });
 
   it('gives a group holding two loops one row per loop, not one row for the group', () => {
-    // g/a -> g/b -> g/c -> g/a (a 3-loop) plus g/b <-> g/d (a 2-loop sharing
-    // g/b) makes {a,b,c,d} one strongly connected group of 4. Reported as a
-    // group it was a single row labelled "4 files" whose path named three of
-    // them and left g/d invisible; as loops it is both problems, each whole.
+    // g/a -> g/b -> g/c -> g/a plus g/b <-> g/d makes {a,b,c,d} one strongly
+    // connected group of 4. Reported as a group it was one row labelled "4
+    // files" whose path named three and left g/d invisible; as loops it is
+    // both problems, each whole.
     const scan = makeScan(
       ['g/a.ts', 'g/b.ts', 'g/c.ts', 'g/d.ts'],
       [
@@ -229,9 +228,9 @@ describe('computeCircularImports', () => {
   });
 
   it('reports the same loop once when two statements import the same module', () => {
-    // A barrel that re-exports one file twice (a value export plus a type
-    // one, say) is two edges but one import to remove — and printing the
-    // loop twice was exactly what a real project produced.
+    // A barrel re-exporting one file twice (a value export plus a type one)
+    // is two edges but one import to remove. Printing the loop twice is
+    // exactly what a real project produced.
     const scan = makeScan(
       ['barrel.ts', 'Modal.tsx'],
       [
@@ -266,9 +265,8 @@ describe('computeCircularImports', () => {
   });
 
   it('leaves a loop longer than the limit out while still listing the short ones beside it', () => {
-    // a<->b is a 2-loop; a->c->d->e->a is a 4-loop that the default limit
-    // does list; raising the question of what the limit actually cuts, the
-    // 3-file limit here must keep the first and drop the second.
+    // a<->b is a 2-loop; a->c->d->e->a is a 4-loop the default limit does
+    // list. The 3-file limit here must keep the first and drop the second.
     const scan = makeScan(
       ['a.ts', 'b.ts', 'c.ts', 'd.ts', 'e.ts'],
       [

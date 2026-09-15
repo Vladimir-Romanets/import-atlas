@@ -5,12 +5,11 @@ import { BODY_GRAPH, CSS_GRAPH, SCRIPT_GRAPH } from "./render.generated";
 export type RenderGraphOptions = ReportOptions;
 
 /**
- * Renders a self-contained HTML file showing the merged graph: one node per
- * file, wherever it is imported from.
+ * A self-contained HTML file showing the merged graph: one node per file,
+ * wherever it is imported from.
  *
- * The payload is a good deal smaller than the tree viewer's, despite
- * describing the same scan — a tree repeats a shared file once per place
- * that reaches it, and this does not repeat it at all.
+ * The payload is much smaller than the tree viewer's for the same scan — a
+ * tree repeats a shared file once per place reaching it; this never does.
  */
 export function renderGraphHtml(
   graph: GraphData,

@@ -14,47 +14,39 @@ function scriptKindFor(filePath: string): ts.ScriptKind {
 export interface ImportSpecifierInfo {
   moduleSpecifier: string;
   /**
-   * Name(s) this statement pulls FROM the target module — the target's own
-   * export name (`propertyName` when aliased, e.g. `export { A as Alpha }`
-   * yields `A` here). Used to compute what's ever been requested of the
-   * target file, regardless of what this statement itself calls it.
-   * '*' when that can't be determined (namespace import, dynamic import(),
-   * require(), a bare side-effect import, or `export * from`).
+   * The target's own export name(s) — `propertyName` when aliased, so
+   * `export { A as Alpha }` yields `A`. Used to compute what's ever been
+   * requested of the target, whatever this statement calls it locally. '*'
+   * for a namespace/dynamic import, `require()`, a bare side-effect import,
+   * or `export * from`.
    */
   names: string[] | '*';
   /**
-   * For a re-export, the name(s) THIS file exposes onward to its own
-   * consumers via this statement (the local/outward name — `name` when
-   * aliased, e.g. `export { A as Alpha }` yields `Alpha` here). Equal to
-   * `names` when there's no rename. Meaningless for a plain import (mirrors
-   * `names`, but is never consulted — a plain import edge is never filtered).
+   * For a re-export, the outward name(s) this file exposes to its own
+   * consumers — `name` when aliased, so `export { A as Alpha }` yields
+   * `Alpha`. Equal to `names` without a rename, and never consulted for a
+   * plain import, whose edge is never filtered.
    */
   exposedNames: string[] | '*';
-  /** True for `export ... from '...'` (a re-export, forwarding a name onward to this file's own consumers) as opposed to a plain `import ... from '...'` (direct, unconditional usage by this file). Only re-export edges are ever candidates for the "unused" barrel-filtering view — a plain import is proof of real usage regardless of what name the importing file is itself known by elsewhere. */
+  /** True for `export ... from '...'` (a re-export) as opposed to `import ... from '...'` (direct usage). Only re-export edges are candidates for barrel filtering — a plain import is proof of real usage. */
   isReexport: boolean;
   /**
-   * True when the statement sits inside a function, so it cannot run while
-   * the importing module is evaluating its own top level — `React.lazy(() =>
-   * import('./Page'))`, or a `require()` in a rarely-hit branch. The
-   * dependency is real and stays in the graph; what's absent is the
-   * load-order coupling, which is why the cycle and duplicate detectors skip
-   * these. A top-level `require()` or `await import()` is NOT deferred: it
-   * runs during evaluation like a plain import, with the same hazards.
+   * True when the statement sits inside a function and so cannot run while
+   * the importing module evaluates its top level (`React.lazy(() =>
+   * import('./Page'))`). The dependency is real and stays in the graph; the
+   * load-order coupling is what's absent, hence the cycle and duplicate
+   * detectors skip these. A top-level `require()` or `await import()` is NOT
+   * deferred — it runs during evaluation, with the same hazards.
    */
   isDeferred: boolean;
 }
 
 /**
- * `source` is the name(s) as exported by the imported module itself
- * (`'default'` for a default import; `propertyName`, falling back to
- * `name`, for a named one) — used to compute what's ever been requested of
- * that module, regardless of what THIS file calls it locally. `local` is
- * the name this statement actually binds it to in this file's own scope
- * (`clause.name` / `spec.name`) — e.g. `import LoginPage from './x'` binds
- * `default` as `LoginPage`; `import { Foo as Bar } from './x'` binds `Foo`
- * as `Bar`. Equal to `source` when there's no local rename. Used to label
- * the node in the viewer as what a reader of THIS file would recognize it
- * by, not the target's own internal name for it.
+ * `source` is what the imported module exports it as (`'default'`, or
+ * `propertyName` falling back to `name`) — what's been requested of that
+ * module. `local` is what this file binds it to: `import LoginPage from
+ * './x'` binds `default` as `LoginPage`. Equal without a rename. The viewer
+ * labels nodes with `local`, the name a reader of THIS file recognizes.
  */
 function namesFromImportClause(
   clause: ts.ImportClause | undefined,
@@ -78,11 +70,10 @@ function namesFromImportClause(
 }
 
 /**
- * `source` is the name(s) as exported by the re-exported module itself
- * (`propertyName`, falling back to `name` when there's no `as` alias) —
- * this is what's being "requested" of that module. `exposed` is the
- * name(s) this file's own re-export statement makes available to ITS
- * consumers (`name`) — these can differ under `export { A as Alpha }`.
+ * `source` is what the re-exported module exports it as (`propertyName`,
+ * falling back to `name`) — what's requested of it. `exposed` is what this
+ * file's re-export makes available to ITS consumers (`name`). They differ
+ * under `export { A as Alpha }`.
  */
 function namesFromExportClause(
   node: ts.ExportDeclaration,
@@ -120,15 +111,14 @@ function objectLiteralPropertyNames(literal: ts.ObjectLiteralExpression): string
 }
 
 /**
- * Collects the names a file exports through its own declarations — see
- * `ExportFacts`. Only top-level statements are examined, which is also the
- * only place an export can legally appear.
+ * The names a file exports through its own declarations — see
+ * `ExportFacts`. Only top-level statements are examined, the only place an
+ * export can legally appear.
  */
 function collectExports(sourceFile: ts.SourceFile): ExportFacts {
   const ownNames: string[] = [];
   // Top-level `const X = { ... }` literals, kept in case the default export
-  // turns out to forward one of them (the `const Utils = {...}; export
-  // default Utils` aggregation pattern).
+  // forwards one (`const Utils = {...}; export default Utils`).
   const objectLiterals: Record<string, string[]> = {};
   let defaultExpression: ts.Expression | null = null;
   let defaultLocalName: string | null = null;
@@ -158,8 +148,8 @@ function collectExports(sourceFile: ts.SourceFile): ExportFacts {
     }
 
     // `export { A, B as C };` with no module specifier exposes local
-    // bindings under their outward names. (With a specifier it's a
-    // re-export, i.e. an edge, and is left to `collectImports`.)
+    // bindings under their outward names. With one it is a re-export — an
+    // edge, left to `collectImports`.
     if (ts.isExportDeclaration(statement) && !statement.moduleSpecifier) {
       const clause = statement.exportClause;
       if (clause && ts.isNamedExports(clause)) {
@@ -218,13 +208,11 @@ function collectImports(sourceFile: ts.SourceFile): ImportSpecifierInfo[] {
   const specifiers: ImportSpecifierInfo[] = [];
 
   /**
-   * `inFunction` is what separates a lazy import from an eager one: not the
-   * syntax used, but whether the call can run while this module is still
-   * evaluating. An `import()` or `require()` under a function body runs on
-   * call; either one at module scope runs on load, exactly like a plain
-   * `import` declaration. (An `import()` at module scope that nobody awaits
-   * is the one case counted as eager without being so — it errs toward
-   * reporting a cycle rather than hiding one.)
+   * `inFunction` separates lazy from eager — not the syntax used, but
+   * whether the call can run while this module is still evaluating. Under a
+   * function body it runs on call; at module scope it runs on load, like a
+   * plain `import`. (An unawaited module-scope `import()` is counted eager
+   * without being so, erring toward reporting a cycle rather than hiding it.)
    */
   function visit(node: ts.Node, inFunction: boolean): void {
     if (
@@ -304,12 +292,11 @@ export function extractModuleFacts(filePath: string): ModuleFacts {
 }
 
 /**
- * Extracts every static `import ... from '...'`, `export ... from '...'`,
- * dynamic `import('...')` and `require('...')` module specifier from a file,
- * via the TypeScript AST (not regex) so it survives comments, strings, and
- * template literals that merely look like imports. Also records which named
- * bindings each statement references, so barrel-file expansion can tell
- * which re-exports were actually requested somewhere.
+ * Every static `import`/`export ... from`, dynamic `import('...')` and
+ * `require('...')` specifier in a file, read off the TypeScript AST (not
+ * regex) so it survives comments, strings and template literals that merely
+ * look like imports. Records each statement's named bindings too, so barrel
+ * expansion can tell which re-exports were actually requested.
  */
 export function extractImportSpecifiers(filePath: string): ImportSpecifierInfo[] {
   return collectImports(parseFile(filePath));

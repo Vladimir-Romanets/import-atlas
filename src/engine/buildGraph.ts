@@ -7,20 +7,17 @@ import type { GraphData, GraphEdge, GraphNode, ScanResult } from "../types";
  * Turns the scanned import graph into the merged view: one node per file,
  * one edge per pair of files.
  *
- * This is the counterpart to `buildForest`, and the trade it makes is the
- * opposite one. The forest answers "what does THIS entry point pull in, in
- * order?", and pays for it by drawing a shared file once per place that
- * reaches it — so the fact that twelve branches all end at one barrel is
- * something a reader has to reconstruct from twelve identical-looking
- * boxes. Here the barrel is one box with twelve edges arriving at it, and
- * what is paid instead is the tree's clean "every node has one parent"
- * reading: a path through this graph is no longer unique.
+ * The counterpart to `buildForest`, making the opposite trade. The forest
+ * answers "what does THIS entry pull in, in order?" and pays by drawing a
+ * shared file once per place that reaches it, leaving twelve branches
+ * ending at one barrel to be reconstructed from twelve identical boxes.
+ * Here the barrel is one box with twelve edges arriving; what is given up
+ * is the tree's "every node has one parent" reading.
  *
- * Nothing is narrowed on the way in. A barrel keeps every re-export as a
- * child, because in a merged graph the same node serves all its importers
- * at once and cannot show a different subset to each — which of them any
- * one importer actually reaches is carried on the edges, in `names`/
- * `exposedNames`, for the viewer to highlight rather than hide.
+ * Nothing is narrowed on the way in: a barrel keeps every re-export as a
+ * child, since one node serves all its importers at once. Which of them any
+ * importer reaches is carried on the edges, in `names`/`exposedNames`, for
+ * the viewer to highlight rather than hide.
  */
 export function buildGraph(scanResult: ScanResult): GraphData {
   const { nodes: files } = scanResult;
@@ -34,8 +31,8 @@ export function buildGraph(scanResult: ScanResult): GraphData {
 
   for (const raw of scanResult.edges) {
     // `scan` already drops edges whose target never became a node (the
-    // --max-files cap can cut a walk mid-flight); this also covers a
-    // source that isn't one, so every endpoint below is a real file.
+    // --max-files cap can cut a walk mid-flight); covering the source too
+    // makes every endpoint below a real file.
     if (!isKnown(raw.from) || !isKnown(raw.to)) continue;
 
     const key = edgeKey(raw.from, raw.to);
@@ -50,8 +47,8 @@ export function buildGraph(scanResult: ScanResult): GraphData {
         isDeferred: raw.isDeferred,
         statements: 1,
         mergeableStatements: raw.isDeferred ? 0 : 1,
-        // A file importing itself is the one cycle that needs no search to
-        // find, and no layering can put it left of itself.
+        // The one cycle needing no search to find — and no layering can
+        // put a file left of itself.
         isBackEdge: raw.from === raw.to,
       };
       edgeByKey.set(key, edge);
@@ -66,16 +63,16 @@ export function buildGraph(scanResult: ScanResult): GraphData {
     existing.isReexport = existing.isReexport || raw.isReexport;
     existing.isDeferred = existing.isDeferred && raw.isDeferred;
     existing.statements += 1;
-    // Counted the way `computeDupeImports` counts, so the viewer's warning
-    // and the Findings row it points at can never disagree.
+    // Counted as `computeDupeImports` counts, so the viewer's warning and
+    // the Findings row it points at can't disagree.
     if (!raw.isDeferred) existing.mergeableStatements += 1;
   }
 
   const outEdges = new Map<string, GraphEdge[]>();
   for (const id of Object.keys(files)) outEdges.set(id, []);
   for (const edge of edges) {
-    // Self-imports are already marked and would only ever send the walk
-    // below back into the node it is standing on.
+    // Already marked, and would only send the walk below back into the
+    // node it is standing on.
     if (edge.from === edge.to) continue;
     outEdges.get(edge.from)!.push(edge);
   }
@@ -83,12 +80,11 @@ export function buildGraph(scanResult: ScanResult): GraphData {
   // ---------------------------------------------------------------------
   // 2. Find the edges that close cycles, so what's left can be layered.
   //
-  // Depth-first from the entry points, marking every edge that lands on a
-  // node still open on the current path: a cycle always contains at least
-  // one such edge, so cutting them all leaves an acyclic graph — and cuts
-  // nothing else, since an edge to an already-finished node can't close a
-  // loop. The walk is iterative because the deepest import chain in a
-  // large project is a poor thing to bet the call stack on.
+  // Depth-first from the entries, marking every edge landing on a node
+  // still open on the current path: a cycle holds at least one such edge,
+  // so cutting them all leaves an acyclic graph and cuts nothing else — an
+  // edge to a finished node can't close a loop. Iterative, because the
+  // deepest import chain is a poor thing to bet the call stack on.
   // ---------------------------------------------------------------------
   const UNVISITED = 0;
   const OPEN = 1;
@@ -134,9 +130,8 @@ export function buildGraph(scanResult: ScanResult): GraphData {
   for (const id of entries) {
     if ((state.get(id) ?? UNVISITED) === UNVISITED) walkFrom(id);
   }
-  // Every file the scan recorded was reached from an entry point, so this
-  // is a safety net rather than a path that fires — but a node the walk
-  // never opened would otherwise carry no discovery order at all, and sort
+  // A safety net: every recorded file was reached from an entry, but a node
+  // the walk never opened would carry no discovery order and sort
   // unpredictably.
   for (const id of Object.keys(files)) {
     if ((state.get(id) ?? UNVISITED) === UNVISITED) walkFrom(id);
@@ -164,7 +159,7 @@ export function buildGraph(scanResult: ScanResult): GraphData {
     .filter((id) => (pendingIn.get(id) ?? 0) === 0)
     .sort(byDiscovery);
 
-  // Index cursor rather than `shift()`: this queue holds every file in the
+  // Index cursor rather than `shift()`: the queue holds every file in the
   // project, and shifting an array that size is quadratic.
   for (let i = 0; i < ready.length; i++) {
     const id = ready[i];
@@ -204,7 +199,7 @@ export function buildGraph(scanResult: ScanResult): GraphData {
     };
   });
 
-  // Shallowest first, discovery order among equals: the sequence the
+  // Shallowest first, discovery order among equals — the sequence the
   // layout starts from before it sorts rows to untangle edges.
   graphNodes.sort((a, b) => a.depth - b.depth || a.order - b.order);
 

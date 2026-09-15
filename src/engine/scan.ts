@@ -32,11 +32,10 @@ function isParseable(absPath: string): boolean {
 }
 
 /**
- * Walks the local import graph breadth-first starting from `entryFiles`.
- * External packages (bare specifiers) are recorded on the importing node
- * but never followed. Returns the full graph — a file reachable from more
- * than one place keeps a single node with multiple inbound edges; turning
- * that into a displayable tree is `buildForest`'s job.
+ * Walks the local import graph breadth-first from `entryFiles`. Bare
+ * specifiers are recorded on the importing node but never followed. Returns
+ * the full graph: a file reachable from several places keeps one node with
+ * several inbound edges — turning that into a tree is `buildForest`'s job.
  */
 export function scan(entryFiles: string[], options: ScanOptions): ScanResult {
   const root = path.resolve(options.root);
@@ -65,8 +64,8 @@ export function scan(entryFiles: string[], options: ScanOptions): ScanResult {
     if (!fs.existsSync(abs)) {
       throw new Error(`Entry file not found: ${entry} (resolved to ${abs})`);
     }
-    // Overlapping globs (or a path simply listed twice) resolve to the same
-    // file — keep the first occurrence only, so it stays one entry point.
+    // Overlapping globs (or a path listed twice) resolve to the same file;
+    // keeping the first occurrence keeps it one entry point.
     if (seen.has(abs)) continue;
     seen.add(abs);
     entries.push(toId(abs));
@@ -91,8 +90,8 @@ export function scan(entryFiles: string[], options: ScanOptions): ScanResult {
     const externalImports: string[] = [];
     const unresolvedImports: string[] = [];
     let specifiers: ImportSpecifierInfo[] = [];
-    // Stays null when the file was never parsed, so findings can tell "this
-    // file exports nothing" apart from "nobody looked".
+    // Stays null when the file was never parsed, so findings can tell
+    // "exports nothing" apart from "nobody looked".
     let exports: ExportFacts | null = null;
     if (isParseable(current)) {
       try {
@@ -147,11 +146,11 @@ export function scan(entryFiles: string[], options: ScanOptions): ScanResult {
     };
   }
 
-  // An edge is recorded as soon as its target resolves, before that target is
-  // read — so breaking the walk on the cap leaves edges pointing at files that
-  // never became nodes. Drop them: everything downstream looks an endpoint up
-  // by id and expects a real node back. The gap they represent is already
-  // reported by the cap's own coverageGaps entry.
+  // An edge is recorded as soon as its target resolves, before that target
+  // is read, so breaking on the cap leaves edges pointing at files that
+  // never became nodes. Drop them — everything downstream looks an endpoint
+  // up by id and expects a real node. The cap's own coverageGaps entry
+  // already reports the gap.
   const walkedEdges = edges.filter((edge) => nodes[edge.to] !== undefined);
 
   const fanIn: Record<string, number> = {};
@@ -164,7 +163,7 @@ export function scan(entryFiles: string[], options: ScanOptions): ScanResult {
   }
 
   // An unresolved specifier is an edge we meant to record and couldn't, so
-  // the file it points at is left short of one of its real consumers.
+  // its target is left short of one of its real consumers.
   const unresolved = Object.values(nodes).reduce(
     (total, file) => total + file.unresolvedImports.length,
     0

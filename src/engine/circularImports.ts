@@ -7,21 +7,17 @@ const RECOMMENDATION =
  * Longest loop reported as a row of its own.
  *
  * Four is where the list stops naming new problems and starts naming
- * combinations of ones already named. Measured on a 1574-file project whose
- * largest group is 1236 files: a limit of 4 yields 22 rows, a limit of 5
- * yields 50, and 27 of those extra 28 rows end with the same import the
- * shorter rows already point at — 19 of them are one fact ("three pages
- * import UserProfileActions, which imports six stores") multiplied out. A
- * limit of 6 yields 360 rows. Overridable per run for anyone who wants to
- * look wider.
+ * combinations of ones already named. On a 1574-file project whose largest
+ * group is 1236 files: a limit of 4 yields 22 rows, 5 yields 50 (27 of the
+ * extra 28 end with an import the shorter rows already point at), 6 yields
+ * 360. Overridable per run.
  */
 export const DEFAULT_MAX_CYCLE_LENGTH = 4;
 
 /**
  * Most rows one strongly connected group may contribute. A group dense
- * enough to blow past this has a structural problem no list of loops
- * conveys, so the rest are counted in each row's `reason` instead of
- * printed.
+ * enough to pass this has a structural problem no list of loops conveys, so
+ * the rest are counted in each row's `reason` instead of printed.
  */
 const MAX_ROWS_PER_GROUP = 100;
 
@@ -32,18 +28,15 @@ export interface CircularImportOptions {
 
 /**
  * Tarjan's strongly-connected-components algorithm over the whole import
- * graph. Every node ends up in exactly one component; a component of size
- * 1 is only a cycle if its node has a self-edge (checked separately by the
- * caller) — everything else is just an ordinary acyclic node.
+ * graph. Every node lands in exactly one component; a component of size 1
+ * is a cycle only if its node has a self-edge (the caller checks that).
  *
- * Written with an explicit stack rather than recursion, since a real
- * project's longest import chain is a poor thing to bet the call stack on
- * Each frame is one call to `strongconnect` would
- * have made, holding its own cursor into `v`'s adjacency list so the walk
- * can resume it after descending into a child — the child's `lowlink` is
- * relaxed against its parent's when the child's frame is popped, which is
- * exactly when a recursive call would have returned. `buildGraph.ts` walks
- * its own graph the same way, for the same reason.
+ * Explicit stack rather than recursion: a real project's longest import
+ * chain is a poor thing to bet the call stack on. Each frame stands for one
+ * `strongconnect` call, holding its own cursor into `v`'s adjacency list so
+ * the walk can resume after descending — the child's `lowlink` is relaxed
+ * against its parent's when the child's frame is popped, exactly where a
+ * recursive call would have returned. `buildGraph.ts` does the same.
  */
 function stronglyConnectedComponents(
   nodeIds: string[],
@@ -109,20 +102,17 @@ function stronglyConnectedComponents(
 }
 
 /**
- * Every elementary loop of at most `maxLen` files inside one strongly
- * connected group. An elementary loop visits no file twice, so each one is
- * a chain a reader can follow and act on by itself.
+ * Every elementary loop (no file twice) of at most `maxLen` files inside one
+ * strongly connected group — each a chain a reader can act on by itself.
  *
- * `members` must be ordered. Each loop is emitted exactly once, from its
- * earliest member, because the walk only ever steps to members at or after
- * the one it started from. Ordering `members` by path therefore also rotates
- * every loop to start at its alphabetically first file — the file the row
- * gets filed under — so no second pass is needed to canonicalise them.
+ * `members` must be ordered: the walk only steps to members at or after the
+ * one it started from, so each loop is emitted once, from its earliest
+ * member. Ordering `members` by path therefore also rotates every loop to
+ * start at its alphabetically first file — the one the row is filed under.
  *
- * Bounding the depth is what makes this affordable. Enumerating every
- * elementary loop is exponential in the worst case, and on a real 1236-file
- * group it finds 58,863 of them; stopping at four files finds 22 of them in
- * 4ms, and those 22 are the ones worth reading.
+ * Bounding the depth is what makes this affordable: enumerating every
+ * elementary loop is exponential, and a real 1236-file group holds 58,863
+ * of them; stopping at four files finds the 22 worth reading, in 4ms.
  */
 function shortLoops(
   members: string[],
@@ -163,17 +153,14 @@ function shortLoops(
 }
 
 /**
- * Finds the shortest cycle that passes through `anchor`, walking only edges
- * whose target is also in `memberSet` — that restriction is what guarantees
- * a path back to the anchor exists at all, since a strongly connected
- * component is only strongly connected through its own edges. A
- * breadth-first search visits nodes in non-decreasing distance from the
- * anchor, so the first edge back to it that turns up closes the shortest
- * possible cycle.
+ * The shortest cycle through `anchor`, walking only edges whose target is
+ * also in `memberSet` — a component is strongly connected through its own
+ * edges alone, so that restriction is what guarantees a path back exists.
+ * BFS visits in non-decreasing distance, so the first edge back to the
+ * anchor closes the shortest cycle.
  *
- * Only reached when a group holds no loop short enough to list — a long ring
- * of files, say. Every group is guaranteed to yield one row this way, so a
- * group can never go unreported for being awkwardly shaped.
+ * Only reached when a group holds no loop short enough to list (a long ring,
+ * say), which is what stops an awkwardly shaped group going unreported.
  */
 function representativeCycle(
   anchor: string,
@@ -223,16 +210,14 @@ export function computeCircularImports(
     [...loop, loop[0]].map(relPathOf).join(" → ");
 
   const nodeIds = Object.keys(scanResult.nodes);
-  // Deferred edges are left out on purpose. The hazard this rule reports is
-  // load order — a module reading a binding from one that is still
-  // evaluating — and an import that only runs when a function is called
-  // can't create it. Including them would flag loops that are already
-  // broken, under a recommendation ("import lazily on one side") whose fix
-  // is the very thing that was flagged.
+  // Deferred edges are left out: the hazard here is load order — a module
+  // reading a binding from one still evaluating — which an import that runs
+  // only on call cannot create. Including them would flag already-broken
+  // loops under a recommendation ("import lazily on one side") whose fix is
+  // the very thing flagged.
   const eagerEdges = scanResult.edges.filter((edge) => !edge.isDeferred);
   // Two statements importing the same module are one import in a loop, so
-  // parallel edges collapse here. Left in, they would print the same loop
-  // twice — a file re-exported twice from one barrel did exactly that.
+  // parallel edges collapse here — left in, they print the same loop twice.
   const adjacency: Record<string, string[]> = {};
   const targetsSeen = new Map<string, Set<string>>();
   for (const edge of eagerEdges) {
@@ -273,7 +258,7 @@ export function computeCircularImports(
     const shown = loops.slice(0, MAX_ROWS_PER_GROUP);
 
     if (shown.length === 0) {
-      // No loop short enough to list. One row for the group, carrying the
+      // No loop short enough to list: one row for the group, carrying the
       // shortest cycle through its alphabetically first file.
       const anchor = members[0];
       const path = representativeCycle(anchor, memberSet, componentAdjacency);
@@ -341,8 +326,8 @@ export function computeCircularImports(
     });
   }
 
-  // Tightest loops first: a two-file loop is both the easiest to understand
-  // and the easiest to fix, so it should not be buried under longer ones.
+  // Tightest loops first: a two-file loop is the easiest to understand and
+  // to fix, so it should not be buried under longer ones.
   rows.sort(
     (a, b) =>
       a.size - b.size || a.finding.relPath.localeCompare(b.finding.relPath),
@@ -352,9 +337,8 @@ export function computeCircularImports(
 
 /**
  * Why one loop was flagged, plus the context a single loop cannot carry: how
- * tangled the group around it is, and how many other loops were found there.
- * Without that, a reader fixing one row has no way to tell whether it is the
- * whole problem or one of twenty.
+ * tangled the group around it is, and how many other loops it holds — without
+ * which a reader can't tell one row from one of twenty.
  */
 function loopReason(
   loopSize: number,

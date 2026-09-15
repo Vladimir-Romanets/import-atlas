@@ -16,10 +16,9 @@ export interface LayoutEdge {
 }
 
 /**
- * The graph payload turned into the lookups everything else needs. Built
- * once at startup: the arrays in the payload are ordered for layout, not
- * for random access, and every interaction below wants both directions of
- * every edge.
+ * The graph payload turned into the lookups everything else needs, built
+ * once at startup: the payload's arrays are ordered for layout rather than
+ * random access, and every interaction wants both directions of every edge.
  */
 export interface GraphIndex {
   nodeById: Record<string, GraphNode>;

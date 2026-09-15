@@ -3,8 +3,8 @@ import { byId } from "./dom";
 let backdrop: HTMLElement;
 let bodyEl: HTMLElement;
 let closeBtn: HTMLButtonElement;
-// Focus returns to whichever `?` icon opened the modal, so keyboard/screen
-// reader users don't lose their place in the findings list on close.
+// Focus returns to the `?` icon that opened the modal, so keyboard and
+// screen-reader users keep their place in the findings list.
 let opener: HTMLElement | null = null;
 
 function close(): void {
@@ -30,8 +30,8 @@ export function initHelpModal(): void {
   });
 }
 
-// `html` is a static, developer-authored fragment baked in at build time
-// (src/render/client/help/*.html) — never user input — so innerHTML is safe here.
+// `html` is a developer-authored fragment baked in at build time
+// (src/render/client/help/*.html), never user input, so innerHTML is safe.
 export function showHelp(html: string, triggeredBy: HTMLElement): void {
   opener = triggeredBy;
   bodyEl.innerHTML = html;

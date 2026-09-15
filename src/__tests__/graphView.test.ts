@@ -138,10 +138,9 @@ describe('visibility', () => {
   });
 
   it('draws the edge from an importer the reader never opened through', () => {
-    // The point of the whole view: open `a` and the barrel appears — and
-    // the line from `b`, which is on screen but still closed, is drawn to
-    // it as well. The shared dependency is visible without having to be
-    // hunted for down the second branch.
+    // The point of the whole view: open `a` and the barrel appears, along
+    // with the line from `b`, which is on screen but still closed. The
+    // shared dependency shows without being hunted down the second branch.
     const { visibility } = setUp(sharedBarrelScan());
     visibility.toggle('app/a.ts');
     const visible = visibility.compute();
@@ -173,10 +172,9 @@ describe('visibility', () => {
   });
 
   it('draws the files importing a node when its fan-in badge is opened', () => {
-    // The question a tree cannot answer from the node itself: not "what
-    // does this pull in" but "who pulls this in". `deep/mid.ts` imports
-    // the shared file down a branch the reader never opened, so it is the
-    // importer that only this can bring on screen.
+    // The question a tree cannot answer from the node itself — not "what
+    // does this pull in" but "who pulls this in". `deep/mid.ts` sits down a
+    // branch the reader never opened, so only this can bring it on screen.
     const { visibility } = setUp(farImportersScan());
     visibility.reveal('shared/util.ts');
     expect(visibility.compute().nodes.map((n) => n.id)).not.toContain(
@@ -212,9 +210,9 @@ describe('visibility', () => {
 
   it('offers the fan-in badge only while a node has importers off screen', () => {
     // `deep/mid.ts` is the importer only the badge can bring on screen, so
-    // the shared file gets one. `app/a.ts` does not: the entry that opened
-    // it is its one importer and is right there, which is the "1" beside
-    // nearly every box that this rule exists to remove.
+    // the shared file gets one. `app/a.ts` does not: its one importer is
+    // the entry that opened it, right there — the "1" beside nearly every
+    // box that this rule exists to remove.
     const { index, visibility } = setUp(farImportersScan());
     visibility.reveal('shared/util.ts');
     const drawn = () => {
@@ -514,10 +512,9 @@ describe('layout', () => {
 
   it('measures columns against what is on screen, not against the whole project', () => {
     // `shared/util.ts` is imported straight from the entry AND at the end
-    // of a long chain, so its depth across the project is 3. With only the
-    // entry's own imports open, it belongs in column 1: putting it in
-    // column 3 would leave two empty columns and a needlessly long edge,
-    // and on a real project that gap runs to hundreds of columns.
+    // of a long chain, so its project-wide depth is 3. With only the entry's
+    // imports open it belongs in column 1: column 3 would leave two empty
+    // columns and a long edge — hundreds of columns on a real project.
     const scan = makeScan(
       ['app/entry.ts'],
       ['app/entry.ts', 'app/a.ts', 'app/b.ts', 'shared/util.ts'],
