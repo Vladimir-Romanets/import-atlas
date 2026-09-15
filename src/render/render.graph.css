@@ -20,7 +20,9 @@
   .fan-in:focus-visible circle{stroke:var(--text-muted);stroke-width:2.5px;}
   .fan-in.showing circle{fill:var(--highlight);stroke:var(--highlight);}
   .fan-in.showing text{fill:var(--surface);}
-  .node.active .fan-in circle{stroke:var(--highlight);}
+  /* `on-active` marks the selected node's own badge: hover raises it out of
+     the node, beyond the reach of `.node.active`. */
+  .node.active .fan-in circle,.fan-in.on-active circle{stroke:var(--highlight);}
 
   /* The chevron closes a node, which a click on its body will not do — so
      it is a control of its own, focusable like the fan-in badge. */
@@ -30,6 +32,17 @@
   .chev-node:focus-visible circle{stroke:var(--text-muted);stroke-width:2.5px;}
 
   .edge-back{stroke:var(--danger)!important;stroke-dasharray:5 4;opacity:0.75;}
+
+  /* Hover lifts edges and badges above the nodes; the rules below give a
+     raised badge back what leaving `.node` costs it. */
+  #edges-hover{pointer-events:none;}
+  /* A raised badge no longer satisfies `.node:hover`, so the node says so. */
+  .node.hovered .box{stroke:var(--text-muted);}
+  /* Otherwise inherited from `.node text`. */
+  .fan-in text,.chev-node text{user-select:none;-webkit-user-select:none;}
+  /* A count, not a control: transparent to the pointer, so the click reaches
+     the node in both places. */
+  .count-badge{pointer-events:none;}
 
   /* With something selected the picture splits three ways: what the
      selection touches, what it reaches THROUGH a barrel, and everything

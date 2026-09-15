@@ -34,6 +34,10 @@ export interface GraphRendererOptions {
   svg: SVGSVGElement;
   edgesG: SVGGElement;
   nodesG: SVGGElement;
+  /** After `nodesG` in the DOM, so an edge moved here paints over every node. */
+  edgesHoverG: SVGGElement;
+  /** After `edgesHoverG`, so a badge moved here paints over a raised edge too. */
+  nodesHoverG: SVGGElement;
   colorOf: (layer: string) => ColorPair;
   viewport: Viewport;
   onSelect: (node: LayoutNode | null) => void;
@@ -161,6 +165,8 @@ export function createGraphRenderer({
   svg,
   edgesG,
   nodesG,
+  edgesHoverG,
+  nodesHoverG,
   colorOf,
   viewport,
   onSelect,
@@ -180,6 +186,37 @@ export function createGraphRenderer({
 
   let drawnRect: WorldRect | null = null;
   let drawnDetailed = true;
+
+  /**
+   * Drawn edges touching each node, in either direction, each paired with the
+   * id at the far end. Rebuilt every draw, so `hoverNode` finds what to raise
+   * without walking `layout.edges` on every pointer move.
+   */
+  let edgesByNode: Map<
+    string,
+    Array<{ path: SVGPathElement; otherId: string; dim: boolean }>
+  > = new Map();
+  /** Every detailed node's own `<g>`, keyed by id — no DOM query to raise one. */
+  let nodeElementById: Map<string, SVGGElement> = new Map();
+  /**
+   * A node's `fan-in`/`chev-node`/`count-badge` children. Hover raises these
+   * and never the box: a box lifted above a raised edge would clip the curves
+   * that merely graze its column.
+   */
+  let badgesByNode: Map<string, SVGGElement[]> = new Map();
+  /** The node whose edges are currently raised into `edgesHoverG`, if any. */
+  let hoveredId: string | null = null;
+  /** Nodes currently moved into `nodesHoverG` — the hovered node plus every neighbour a raised edge reaches. */
+  let raisedNodeIds: Set<string> = new Set();
+  /**
+   * Edges now in `edgesHoverG`, each with the sibling it sat before, in the
+   * order raised. `lowerAll` restores them in reverse, so an anchor that was
+   * itself raised is already home — and the paint order survives the hover.
+   */
+  let raisedEdges: Array<{
+    path: SVGPathElement;
+    anchor: ChildNode | null;
+  }> = [];
 
   const selectNode = (id: string | null, byClick: boolean): void => {
     selected = id;
@@ -247,10 +284,16 @@ export function createGraphRenderer({
     const classes = ["edge"];
     if (link.edge.isBackEdge) classes.push("edge-back");
     if (link.edge.isDeferred) classes.push("edge-deferred");
+    // Dimmed by the selection, which asks a different question than hover, so
+    // it sits out of the raise below.
+    let dim = false;
     if (highlight.selectedId !== null) {
       if (highlight.reached.has(key)) classes.push("edge-reached");
       else if (highlight.edges.has(key)) classes.push("edge-hl");
-      else classes.push("edge-dim");
+      else {
+        classes.push("edge-dim");
+        dim = true;
+      }
     }
 
     const path = document.createElementNS(SVGNS, "path");
@@ -260,7 +303,151 @@ export function createGraphRenderer({
     path.style.setProperty("--dot-l", col[0]);
     path.style.setProperty("--dot-d", col[1]);
     edgesG.appendChild(path);
+
+    const addTo = (id: string, otherId: string): void => {
+      const list = edgesByNode.get(id);
+      if (list === undefined) edgesByNode.set(id, [{ path, otherId, dim }]);
+      else list.push({ path, otherId, dim });
+    };
+    addTo(link.edge.from, link.edge.to);
+    // A self-import already got its one entry above — the loop's only node.
+    if (link.edge.to !== link.edge.from) addTo(link.edge.to, link.edge.from);
   };
+
+  // -----------------------------------------------------------------------
+  // Hover: raise every edge touching a node, in either direction, above every
+  // other node, so a reader can follow one file's fan-in or fan-out through a
+  // dense crossing without clicking — which would also dim everything the
+  // selection misses, a heavier answer to a lighter question. A node the
+  // selection has already dimmed sits it out.
+  //
+  // A raised edge would cut across the badges at its own endpoints, so those
+  // badges — the hovered node's and every raised neighbour's — go up into
+  // `nodesHoverG` with it (not the whole node: see `badgesByNode`).
+  // -----------------------------------------------------------------------
+
+  /**
+   * Set while focus is handed back after a move, so the `focusin` that fires
+   * is not read as the keyboard arriving — on a neighbour's badge it would
+   * hand the hover to the neighbour.
+   */
+  let restoringFocus = false;
+
+  /**
+   * Moving an element to another parent is a remove and an insert, which drops
+   * focus. The badges raised below are focusable, so put focus back.
+   */
+  const keepingFocus = (move: () => void): void => {
+    const focused = document.activeElement;
+    move();
+    if (
+      focused instanceof SVGElement &&
+      focused.isConnected &&
+      document.activeElement !== focused
+    ) {
+      restoringFocus = true;
+      focused.focus();
+      restoringFocus = false;
+    }
+  };
+
+  /** Returns everything the current hover raised to where the draw put it. */
+  const lowerAll = (): void => {
+    if (hoveredId === null) return;
+    const id = hoveredId;
+    hoveredId = null;
+    nodeElementById.get(id)?.classList.remove("hovered");
+    keepingFocus(() => {
+      for (let i = raisedEdges.length - 1; i >= 0; i -= 1) {
+        const { path, anchor } = raisedEdges[i];
+        // A stale anchor would throw rather than misplace one line.
+        edgesG.insertBefore(
+          path,
+          anchor !== null && anchor.parentNode === edgesG ? anchor : null,
+        );
+      }
+      for (const nid of raisedNodeIds) {
+        const parent = nodeElementById.get(nid);
+        for (const el of badgesByNode.get(nid) ?? []) {
+          el.removeAttribute("transform");
+          parent?.appendChild(el);
+        }
+      }
+    });
+    raisedEdges = [];
+    raisedNodeIds.clear();
+  };
+
+  let pendingLower = 0;
+  const cancelPendingLower = (): void => {
+    if (pendingLower === 0) return;
+    cancelAnimationFrame(pendingLower);
+    pendingLower = 0;
+  };
+
+  /**
+   * Deferred a frame, and called off by any `hoverNode` that lands first: a
+   * raised badge sits outside its node's `<g>`, so the pointer moving onto it
+   * reads as leaving the node, and the badge's own enter arrives next.
+   * Lowering at once would put the badge back under the pointer and the two
+   * would trade places once a frame, forever.
+   */
+  const unhoverNode = (id: string): void => {
+    if (hoveredId !== id) return;
+    cancelPendingLower();
+    pendingLower = requestAnimationFrame(() => {
+      pendingLower = 0;
+      lowerAll();
+    });
+  };
+
+  const raiseNode = (id: string): void => {
+    if (raisedNodeIds.has(id)) return;
+    raisedNodeIds.add(id);
+    const badges = badgesByNode.get(id);
+    if (badges === undefined) return;
+    const transform = nodeElementById.get(id)?.getAttribute("transform");
+    // Out of `g` a badge carries no position of its own; with no transform to
+    // copy it would land at the world origin, so leave it where it is.
+    if (transform === null || transform === undefined) return;
+    keepingFocus(() => {
+      for (const el of badges) {
+        el.setAttribute("transform", transform);
+        nodesHoverG.appendChild(el);
+      }
+    });
+  };
+
+  const hoverNode = (node: LayoutNode, dimmed: boolean): void => {
+    // Any enter calls off a pending lower — including the one fired by a badge
+    // this same hover raised.
+    cancelPendingLower();
+    if (hoveredId === node.id) return;
+    // Out of order pointerenter/pointerleave between adjacent nodes must
+    // not leave the previous node's edges (and raised neighbours) stranded.
+    lowerAll();
+    if (dimmed) return;
+    hoveredId = node.id;
+    // Stands in for `:hover`, which the pointer stops satisfying once it rests
+    // on a raised badge.
+    nodeElementById.get(node.id)?.classList.add("hovered");
+    // One insert instead of one per edge: a hub node touches hundreds.
+    const batch = document.createDocumentFragment();
+    // A dimmed edge sits out entirely: its own badge and its neighbour's
+    // stay put, since nothing about to cover them is being raised.
+    for (const { path, otherId, dim } of edgesByNode.get(node.id) ?? []) {
+      if (dim) continue;
+      // Read before the move, while the path is still among its siblings.
+      raisedEdges.push({ path, anchor: path.nextSibling });
+      batch.appendChild(path);
+      raiseNode(node.id);
+      raiseNode(otherId);
+    }
+    edgesHoverG.appendChild(batch);
+  };
+
+  // A redraw needs no hover code of its own: replacing the element under a
+  // motionless pointer re-fires `pointerenter` in Chromium, Firefox and WebKit.
 
   // -----------------------------------------------------------------------
   // Nodes
@@ -281,9 +468,9 @@ export function createGraphRenderer({
     const classes = ["node"];
     if (node.isEntry) classes.push("entry");
     if (node.id === selected) classes.push("active");
-    if (highlight.selectedId !== null && !highlight.nodes.has(node.id)) {
-      classes.push("node-dim");
-    }
+    const dimmed =
+      highlight.selectedId !== null && !highlight.nodes.has(node.id);
+    if (dimmed) classes.push("node-dim");
     g.setAttribute("class", classes.join(" "));
     g.setAttribute("transform", `translate(${node.x},${node.y - NODE_H / 2})`);
     g.dataset.id = node.id;
@@ -296,8 +483,9 @@ export function createGraphRenderer({
 
     if (!detailed) {
       // Zoomed out: a coloured block carrying layer and position only. No
-      // focus target either — tabbing through hundreds of unlabelled
-      // blocks helps nobody.
+      // focus target either — tabbing through hundreds of unlabelled blocks
+      // helps nobody — and no hover, the badges a raise keeps clear of not
+      // being drawn at all.
       rect.setAttribute("class", "box box-far");
       rect.style.setProperty("--dot-l", col[0]);
       rect.style.setProperty("--dot-d", col[1]);
@@ -311,6 +499,9 @@ export function createGraphRenderer({
     g.setAttribute("aria-label", describe(node).replace(/\n/g, ". "));
     rect.setAttribute("class", "box");
     g.appendChild(rect);
+
+    // Filled as the badges below are built — what hover raises, box aside.
+    const badgeEls: SVGGElement[] = [];
 
     const marker = document.createElementNS(SVGNS, "path");
     marker.setAttribute("class", "marker");
@@ -370,7 +561,13 @@ export function createGraphRenderer({
     );
     if (showing || hidden > 0) {
       const inG = document.createElementNS(SVGNS, "g");
-      inG.setAttribute("class", showing ? "fan-in showing" : "fan-in");
+      const inClasses = ["fan-in"];
+      if (showing) inClasses.push("showing");
+      // The selection ring rides on the badge rather than being inherited from
+      // `.node.active`: hover lifts the badge clean out of the node, where a
+      // descendant selector can no longer reach it.
+      if (node.id === selected) inClasses.push("on-active");
+      inG.setAttribute("class", inClasses.join(" "));
       inG.setAttribute("tabindex", "0");
       inG.setAttribute("role", "button");
       // Takes precedence over the node's tooltip: hovering the badge asks
@@ -416,6 +613,7 @@ export function createGraphRenderer({
         }
       });
       g.appendChild(inG);
+      badgeEls.push(inG);
     }
 
     if (node.fanOut > 0) {
@@ -457,6 +655,7 @@ export function createGraphRenderer({
         }
       });
       g.appendChild(chevG);
+      badgeEls.push(chevG);
 
       if (!isOpen) {
         const badgeWidth = 8 + String(node.fanOut).length * 6.5;
@@ -477,6 +676,7 @@ export function createGraphRenderer({
         btext.textContent = String(node.fanOut);
         bg.appendChild(btext);
         g.appendChild(bg);
+        badgeEls.push(bg);
       }
     }
 
@@ -545,7 +745,33 @@ export function createGraphRenderer({
         activate();
       }
     });
+    // Focus raises what hover does: tabbing to a node is the keyboard pointing
+    // at it, and the answer does not change with the input device.
+    const enter = (): void => hoverNode(node, dimmed);
+    const leave = (): void => unhoverNode(node.id);
+    const focusEnter = (): void => {
+      if (!restoringFocus) enter();
+    };
+    const focusLeave = (): void => {
+      if (!restoringFocus) leave();
+    };
 
+    g.addEventListener("pointerenter", enter);
+    g.addEventListener("pointerleave", leave);
+    g.addEventListener("focusin", focusEnter);
+    g.addEventListener("focusout", focusLeave);
+    // A raised badge is no longer a child of `g`, so it carries the same pair
+    // itself: otherwise the pointer crossing onto it reads as leaving the
+    // node, and focus landing on it bubbles nowhere useful.
+    for (const el of badgeEls) {
+      el.addEventListener("pointerenter", enter);
+      el.addEventListener("pointerleave", leave);
+      el.addEventListener("focusin", focusEnter);
+      el.addEventListener("focusout", focusLeave);
+    }
+
+    nodeElementById.set(node.id, g);
+    if (badgeEls.length > 0) badgesByNode.set(node.id, badgeEls);
     nodesG.appendChild(g);
   };
 
@@ -558,12 +784,24 @@ export function createGraphRenderer({
 
     const focused = document.activeElement;
     const focusedId =
-      focused instanceof SVGGElement && nodesG.contains(focused)
+      focused instanceof SVGGElement &&
+      (nodesG.contains(focused) || nodesHoverG.contains(focused))
         ? focused.dataset.id
         : undefined;
 
+    // Nothing survives the wipe below for a deferred lower to put back.
+    cancelPendingLower();
+
     edgesG.innerHTML = "";
     nodesG.innerHTML = "";
+    edgesHoverG.innerHTML = "";
+    nodesHoverG.innerHTML = "";
+    edgesByNode = new Map();
+    nodeElementById = new Map();
+    badgesByNode = new Map();
+    hoveredId = null;
+    raisedNodeIds = new Set();
+    raisedEdges = [];
 
     for (const link of layout.edges) {
       // An edge is on screen when any part of the band between its ends
