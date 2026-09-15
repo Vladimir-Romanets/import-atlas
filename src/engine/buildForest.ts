@@ -180,35 +180,87 @@ export function buildForest(scanResult: ScanResult): TreeNode[] {
     return node;
   }
 
-  /** Depth-first expansion of one occurrence, in the order its imports appear. */
-  function visit(fileId: string, request: Request, parentId: string | null): TreeNode {
-    const key = keyOf(fileId, request);
-    const node = ensureNode(fileId, key, request, parentId);
-    const added = addedChildrenOf[key];
+  /**
+   * Depth-first expansion of one occurrence, in the order its imports
+   * appear.
+   *
+   * Written with an explicit stack rather than recursion, since a real
+   * project's longest import chain is a poor thing to bet the call stack
+   * on. What lets a frame per occurrence stand in
+   * for a call frame: `ensureNode` returns the same `TreeNode` object every
+   * time it is asked for a given key, so a child can be pushed into its
+   * parent's `children` array the moment the walk reaches it — before that
+   * child's own subtree is expanded — and the array still ends up holding
+   * the fully-expanded node once the child's frame is done, because it is
+   * the same object being mutated in place, not a fresh one returned
+   * later. That is what a recursive `node.children.push(visit(...))` got
+   * for free from evaluation order.
+   *
+   * The one thing recursion would otherwise still be trusted to do
+   * correctly is `openKeyOf.delete(fileId)`, which has to run exactly when
+   * a frame's children are exhausted — that boundary is what separates "on
+   * the path currently being walked" (a circular-import marker) from
+   * "already finished" (an ordinary reference). Here it happens in the one
+   * place a frame is popped, so it can't be skipped or duplicated.
+   */
+  function visit(fileId: string, request: Request, parentId: string | null): void {
+    interface Frame {
+      fileId: string;
+      request: Request;
+      node: TreeNode;
+      childIds: string[];
+      added: Set<string>;
+      next: number;
+    }
+    const stack: Frame[] = [];
 
-    openKeyOf.set(fileId, key);
-    for (const childId of childrenOf[fileId] || []) {
+    const push = (fileId: string, request: Request, parentId: string | null): TreeNode => {
+      const key = keyOf(fileId, request);
+      const node = ensureNode(fileId, key, request, parentId);
+      openKeyOf.set(fileId, key);
+      stack.push({
+        fileId,
+        request,
+        node,
+        childIds: childrenOf[fileId] || [],
+        added: addedChildrenOf[key],
+        next: 0,
+      });
+      return node;
+    };
+
+    push(fileId, request, parentId);
+
+    while (stack.length > 0) {
+      const frame = stack[stack.length - 1];
+      if (frame.next >= frame.childIds.length) {
+        openKeyOf.delete(frame.fileId);
+        stack.pop();
+        continue;
+      }
+
+      const childId = frame.childIds[frame.next++];
       // The same pair can be linked by several statements (a value import
       // plus a type-only one, say). They are one child node, with the
       // repetition called out in this node's `hint`.
-      if (added.has(childId)) continue;
-      added.add(childId);
-      if (!requestReaches(fileId, childId, request)) continue;
+      if (frame.added.has(childId)) continue;
+      frame.added.add(childId);
+      if (!requestReaches(frame.fileId, childId, frame.request)) continue;
 
-      const childRequest = edgeRequests[edgeKey(fileId, childId)] ?? '*';
+      const childRequest = edgeRequests[edgeKey(frame.fileId, childId)] ?? '*';
 
       // Closing a loop: point back at the occurrence still being expanded
       // rather than descending into it again.
       const openKey = openKeyOf.get(childId);
       if (openKey !== undefined) {
-        node.children.push(
+        frame.node.children.push(
           makeNode(
             childId,
             nextRenderId(),
             canonicalRenderId[openKey],
             "circular import — see Findings tab for the full cycle",
             "",
-            fileId,
+            frame.fileId,
           ),
         );
         continue;
@@ -216,15 +268,19 @@ export function buildForest(scanResult: ScanResult): TreeNode[] {
 
       const existingRenderId = canonicalRenderId[keyOf(childId, childRequest)];
       if (existingRenderId !== undefined) {
-        node.children.push(
-          makeNode(childId, nextRenderId(), existingRenderId, "", "", fileId),
+        frame.node.children.push(
+          makeNode(childId, nextRenderId(), existingRenderId, "", "", frame.fileId),
         );
         continue;
       }
-      node.children.push(visit(childId, childRequest, fileId));
+
+      // Descend: claim the child's canonical position and its slot in this
+      // node's children now, then push a frame to expand it. `childNode`
+      // is the same object `frame.node.children` now holds, so filling in
+      // its own children later (as its frame runs) is all this slot needs.
+      const childNode = push(childId, childRequest, frame.fileId);
+      frame.node.children.push(childNode);
     }
-    openKeyOf.delete(fileId);
-    return node;
   }
 
   // Entry points own their canonical position: reserve a root node for each

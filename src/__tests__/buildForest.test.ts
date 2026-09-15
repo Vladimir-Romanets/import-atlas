@@ -465,3 +465,71 @@ describe('buildForest — a barrel shows what its importer asked for', () => {
     expect(backEdge.ref).toBe(barrel.renderId);
   });
 });
+
+describe('buildForest — openKeyOf boundary (recursion-to-iteration regression)', () => {
+  it('treats the same file as a cycle marker on one branch and a plain reference on a later, finished one', () => {
+    // a <-> shared is a real cycle, closed while both are still open on the
+    // walk. b reaches shared afterwards, once a's whole branch — a and
+    // shared both — has finished. That later occurrence must read as an
+    // ordinary reference, not another cycle marker: exactly the boundary
+    // `openKeyOf.delete` draws when a frame's children run out, which the
+    // explicit-stack rewrite has to get right without recursion's help.
+    const scan = makeScan(
+      ['app/entry.ts'],
+      ['app/entry.ts', 'app/a.ts', 'app/b.ts', 'app/shared.ts'],
+      [
+        edge('app/entry.ts', 'app/a.ts', ['A']),
+        edge('app/a.ts', 'app/shared.ts', ['s']),
+        edge('app/shared.ts', 'app/a.ts', ['a']),
+        edge('app/entry.ts', 'app/b.ts', ['B']),
+        edge('app/b.ts', 'app/shared.ts', ['s']),
+      ],
+    );
+    const forest = buildForest(scan);
+
+    const a = findChild(forest, 'app/a.ts');
+    const sharedCanonical = findChild(a.children, 'app/shared.ts');
+    expect(sharedCanonical.ref).toBeNull();
+
+    const backEdge = findChild(sharedCanonical.children, 'app/a.ts');
+    expect(backEdge.ref).toBe(a.renderId);
+    expect(backEdge.warn).toBe('circular import — see Findings tab for the full cycle');
+
+    const b = findChild(forest, 'app/b.ts');
+    const sharedUnderB = findChild(b.children, 'app/shared.ts');
+    expect(sharedUnderB.ref).toBe(sharedCanonical.renderId);
+    expect(sharedUnderB.warn).toBe('');
+  });
+});
+
+describe('buildForest — deep chains (stack-depth regression)', () => {
+  it('builds a 10,000-link chain without overflowing the call stack', () => {
+    const N = 10000;
+    const ids = Array.from({ length: N }, (_, i) => `src/f${i}.ts`);
+    const edges: Edge[] = [];
+    for (let i = 0; i < N - 1; i++) {
+      edges.push(edge(`src/f${i}.ts`, `src/f${i + 1}.ts`, ['x']));
+    }
+    const scan = makeScan(['src/f0.ts'], ids, edges);
+
+    let forest: any;
+    expect(() => {
+      forest = buildForest(scan);
+    }).not.toThrow();
+
+    // The chain is linear, so walking it down needs no recursion of its
+    // own — asserting on what came back, not just the absence of a throw.
+    let node = forest[0];
+    expect(node.fileId).toBe('src/f0.ts');
+    expect(node.ref).toBeNull();
+    let depth = 0;
+    while (node.children.length > 0) {
+      expect(node.children).toHaveLength(1);
+      node = node.children[0];
+      depth++;
+    }
+    expect(depth).toBe(N - 1);
+    expect(node.fileId).toBe(`src/f${N - 1}.ts`);
+    expect(node.ref).toBeNull();
+  });
+});

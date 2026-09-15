@@ -35,6 +35,15 @@ export interface CircularImportOptions {
  * graph. Every node ends up in exactly one component; a component of size
  * 1 is only a cycle if its node has a self-edge (checked separately by the
  * caller) — everything else is just an ordinary acyclic node.
+ *
+ * Written with an explicit stack rather than recursion, since a real
+ * project's longest import chain is a poor thing to bet the call stack on
+ * Each frame is one call to `strongconnect` would
+ * have made, holding its own cursor into `v`'s adjacency list so the walk
+ * can resume it after descending into a child — the child's `lowlink` is
+ * relaxed against its parent's when the child's frame is popped, which is
+ * exactly when a recursive call would have returned. `buildGraph.ts` walks
+ * its own graph the same way, for the same reason.
  */
 function stronglyConnectedComponents(
   nodeIds: string[],
@@ -47,31 +56,49 @@ function stronglyConnectedComponents(
   const stack: string[] = [];
   const components: string[][] = [];
 
-  function strongconnect(v: string): void {
-    index[v] = nextIndex;
-    lowlink[v] = nextIndex;
-    nextIndex++;
-    stack.push(v);
-    onStack[v] = true;
+  interface Frame {
+    v: string;
+    edges: string[];
+    next: number;
+  }
 
-    for (const w of adjacency[v] || []) {
-      if (index[w] === undefined) {
-        strongconnect(w);
-        lowlink[v] = Math.min(lowlink[v], lowlink[w]);
-      } else if (onStack[w]) {
-        lowlink[v] = Math.min(lowlink[v], index[w]);
+  function strongconnect(root: string): void {
+    const work: Frame[] = [];
+    const open = (v: string): void => {
+      index[v] = nextIndex;
+      lowlink[v] = nextIndex;
+      nextIndex++;
+      stack.push(v);
+      onStack[v] = true;
+      work.push({ v, edges: adjacency[v] || [], next: 0 });
+    };
+
+    open(root);
+    while (work.length > 0) {
+      const frame = work[work.length - 1];
+      if (frame.next >= frame.edges.length) {
+        if (lowlink[frame.v] === index[frame.v]) {
+          const component: string[] = [];
+          let w: string;
+          do {
+            w = stack.pop()!;
+            onStack[w] = false;
+            component.push(w);
+          } while (w !== frame.v);
+          components.push(component);
+        }
+        work.pop();
+        const parent = work[work.length - 1];
+        if (parent) lowlink[parent.v] = Math.min(lowlink[parent.v], lowlink[frame.v]);
+        continue;
       }
-    }
 
-    if (lowlink[v] === index[v]) {
-      const component: string[] = [];
-      let w: string;
-      do {
-        w = stack.pop()!;
-        onStack[w] = false;
-        component.push(w);
-      } while (w !== v);
-      components.push(component);
+      const w = frame.edges[frame.next++];
+      if (index[w] === undefined) {
+        open(w);
+      } else if (onStack[w]) {
+        lowlink[frame.v] = Math.min(lowlink[frame.v], index[w]);
+      }
     }
   }
 

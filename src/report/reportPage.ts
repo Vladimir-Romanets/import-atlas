@@ -1,6 +1,7 @@
 import { computeCircularImports } from "../engine/circularImports";
 import { computeDupeImports } from "../engine/dupeImports";
 import { computeFindings, sortFindings } from "../engine/findings";
+import { stringifyDeep } from "../utils/stringifyDeep";
 import type { ReportMeta, ScanResult } from "../types";
 
 export interface ReportOptions {
@@ -84,7 +85,11 @@ export function reportPage({
   // `</script>` inside the payload would close the tag it is sitting in;
   // escaping every `<` is the blunt version of that check, and costs a few
   // bytes of a file nobody reads by hand.
-  const dataJson = JSON.stringify(data).replace(/</g, "\\u003c");
+  //
+  // `stringifyDeep`, not `JSON.stringify`, because the tree payload nests
+  // one level per import-chain link and a deep enough chain overflows the
+  // call stack `JSON.stringify` recurses over.
+  const dataJson = stringifyDeep(data).replace(/</g, "\\u003c");
 
   return `<!doctype html>
 <html lang="en">
