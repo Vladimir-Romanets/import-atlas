@@ -28,6 +28,8 @@ const svg = byId<SVGSVGElement>("canvas");
 const viewportG = byId<SVGGElement>("viewport");
 const edgesG = byId<SVGGElement>("edges");
 const nodesG = byId<SVGGElement>("nodes");
+const edgesHoverG = byId<SVGGElement>("edges-hover");
+const nodesHoverG = byId<SVGGElement>("nodes-hover");
 
 const viewport = createViewport(svg, viewportG);
 const visibility = createVisibility(graph, index);
@@ -78,6 +80,8 @@ const renderer = createGraphRenderer({
   svg,
   edgesG,
   nodesG,
+  edgesHoverG,
+  nodesHoverG,
   colorOf,
   viewport,
   onSelect: (node) => {

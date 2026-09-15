@@ -1,5 +1,5 @@
 <div align="center" style="background-color: #0a121d">
-  <img src="./docs/thumb.png" width="320px" title="import-atlas" alt="import-atlas - Scan the local import graph of a JavaScript or TypeScript project" />
+  <img src="./docs/thumb.png" width="640px" title="import-atlas" alt="import-atlas - Scan the local import graph of a JavaScript or TypeScript project" />
 </div>
 <div align="center">
 
