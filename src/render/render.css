@@ -111,7 +111,7 @@
   .edge{fill:none;stroke-width:1;opacity:0.55;stroke:var(--dot-l);}
   @media (prefers-color-scheme: dark){ .edge{stroke:var(--dot-d);} }
   /* A link taken only lazily — every statement behind it a dynamic import
-     or a require inside a function. Dotted in both viewers. */
+     or an in-function require. Dotted in both viewers. */
   .edge-deferred{stroke-dasharray:2 3;}
   .edge-legend{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:6px;font-size:11.5px;color:var(--text-muted);}
   .edge-legend li{display:flex;align-items:center;gap:8px;}

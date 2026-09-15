@@ -12,7 +12,7 @@ import { renderSidebar } from "./client/sidebar";
 import { createViewport } from "./client/viewport";
 
 // Read rather than declared as a global: the tree viewer declares the same
-// property on `window` with its own payload type, and both entry points are
+// `window` property with its own payload type, and both entry points are
 // checked as one program.
 const DATA = (window as unknown as { __IMPORT_ATLAS_DATA__: GraphRenderData })
   .__IMPORT_ATLAS_DATA__;
@@ -52,9 +52,9 @@ tabFindings.addEventListener("click", () => {
   activateTab("findings");
 });
 
-// Every viewport operation measures the SVG to work out where to pan or
-// zoom to, and a panel that isn't showing measures 0×0 — so the sidebar's
-// canvas controls switch back to the graph before they do anything.
+// Every viewport operation measures the SVG to know where to pan or zoom,
+// and a hidden panel measures 0×0 — so the sidebar's canvas controls switch
+// back to the graph before doing anything.
 function showGraph(): void {
   activateTab("graph");
 }
@@ -62,11 +62,10 @@ function showGraph(): void {
 const toggleExpandBtn = byId<HTMLButtonElement>("toggleExpand");
 const toggleExpandText = byId("toggleExpandText");
 
-// Read off the live visibility state rather than kept as a flag of its own,
-// and hung on the renderer's `onVisibilityChange` rather than called beside
-// each mutation: most of what opens and closes nodes is the chevrons and
-// badges the renderer draws, which never come through this file. Every one
-// of them refreshes, so every one of them lands here.
+// Read off live visibility rather than kept as a flag, and hung on
+// `onVisibilityChange` rather than called beside each mutation: most of what
+// opens and closes nodes is the renderer's own chevrons and badges, which
+// never come through this file but do all refresh.
 function renderToggleExpand(): void {
   const isFullyExpanded = visibility.isFullyExpanded();
   toggleExpandBtn.setAttribute("aria-checked", String(isFullyExpanded));
@@ -109,20 +108,19 @@ byId("fitView").addEventListener("click", () => {
 function jumpTo(id: string, committed: boolean): void {
   showGraph();
   if (committed) {
-    // Opening the way in can add nodes, so the layout has to be redone
-    // before there is a position to centre on.
+    // Opening the way in adds nodes, so the layout has to be redone before
+    // there is a position to centre on.
     if (!visibility.reveal(id)) return;
-    // Landing on a file names the one route that was opened to reach it,
-    // which for a widely shared file is the least interesting thing about
-    // it. Draw everything that imports it instead — that is what someone
-    // searching for `shared/api` came to find out.
+    // The route opened to reach a file is the least interesting thing about
+    // a widely shared one. Draw everything that imports it instead — what
+    // someone searching for `shared/api` came to find out.
     visibility.showImporters(id);
     renderer.refresh();
   }
 
-  // While the reader is still typing, a match that isn't on the canvas is
-  // simply not shown: both calls above outlive the keystroke that made
-  // them, and half-typed queries match files nobody went looking for.
+  // While the reader is still typing, a match that isn't on the canvas goes
+  // unshown: both calls above outlive the keystroke that made them, and
+  // half-typed queries match files nobody went looking for.
   const node = renderer.nodeAt(id);
   if (node === undefined) return;
 

@@ -1,35 +1,30 @@
 /**
- * What a file exports through its OWN declarations — the other half of the
- * import graph. Edges say what every file *asks* for; this says what each
- * file *offers*, and the difference between the two is an export nobody
- * imports.
+ * What a file exports through its OWN declarations. Edges say what a file
+ * asks for; this says what it offers, and the gap between them is an export
+ * nobody imports.
  *
- * `export ... from '...'` is deliberately absent here: a re-export is an
- * edge, already carried by `Edge.exposedNames`, and is judged as one.
+ * `export ... from '...'` is absent here: a re-export is an edge, carried by
+ * `Edge.exposedNames`.
  */
 export interface ExportFacts {
   /** Names this file exports via its own declarations. `'default'` for a default export, whatever form it takes. */
   ownNames: string[];
   /**
-   * When the default export is an object literal gathering local bindings
-   * (`const Utils = { leftPad, isBlank }; export default Utils`), the
-   * property names it carries. Those bindings stay reachable to consumers
-   * as `Utils.leftPad` — property access on an imported binding, which an
-   * import graph cannot see. Their named exports therefore look unimported
-   * while the symbols are very much alive, so findings flag them only at
-   * reduced confidence.
+   * Property names of a default-exported object literal
+   * (`const Utils = { leftPad, isBlank }; export default Utils`). Consumers
+   * reach them as `Utils.leftPad` — property access the import graph cannot
+   * see — so findings flag such names only at reduced confidence.
    */
   defaultAggregateNames: string[];
   /**
    * Local name the default export forwards, when it is a plain identifier
-   * (`export default LoginPage`). Lets a named export that merely duplicates
-   * the default be told apart from a genuinely dead one.
+   * (`export default LoginPage`). Tells a named export that merely
+   * duplicates the default apart from a genuinely dead one.
    */
   defaultLocalName: string | null;
   /**
-   * True for `export = ...` (TypeScript's CommonJS interop). The file's
-   * named exports can't be reasoned about through it, so findings skip the
-   * file entirely rather than guess.
+   * True for `export = ...` (TypeScript's CommonJS interop). Named exports
+   * can't be reasoned about through it, so findings skip the file.
    */
   hasExportEquals: boolean;
 }
@@ -47,26 +42,25 @@ export interface FileNode {
   externalImports: string[];
   /** Specifiers that looked local/aliased but could not be resolved to a file on disk. */
   unresolvedImports: string[];
-  /** `null` when the file was never parsed — a non-JS/TS asset, or a file that wouldn't parse. Findings skip those rather than read an empty export list as "exports nothing". */
+  /** `null` when the file was never parsed (an asset, or a file that wouldn't parse), so findings don't read an empty list as "exports nothing". */
   exports: ExportFacts | null;
 }
 
 export interface Edge {
   from: string;
   to: string;
-  /** Name(s) this statement pulls FROM the target module (`propertyName` when aliased) — used to compute what's ever been requested of the target file. '*' when that can't be determined. */
+  /** Name(s) pulled FROM the target module (`propertyName` when aliased) — what's ever been requested of it. '*' when undeterminable. */
   names: string[] | '*';
-  /** For a re-export, the name(s) this file exposes onward to its own consumers via this statement (`name` when aliased — can differ from `names` under `export { A as Alpha }`). Meaningless for a plain import. */
+  /** For a re-export, the name(s) exposed onward to this file's own consumers (`name` when aliased — differs from `names` under `export { A as Alpha }`). Meaningless for a plain import. */
   exposedNames: string[] | '*';
   /** True for `export ... from '...'` (a re-export) as opposed to a plain `import ... from '...'` (direct usage). */
   isReexport: boolean;
   /**
    * True when the import sits inside a function and so cannot run while the
-   * importing module evaluates its own top level — `lazy(() =>
-   * import('./Page'))`, a `require()` in a branch. The dependency is real,
-   * so the edge stays in the graph and in the tree; but it carries none of
-   * the load-order coupling a module-scope import does, which is why the
-   * cycle and duplicate detectors leave these edges out.
+   * importing module evaluates its top level (`lazy(() =>
+   * import('./Page'))`). The dependency is real and stays in the graph, but
+   * carries no load-order coupling — hence the cycle and duplicate
+   * detectors leave these edges out.
    */
   isDeferred: boolean;
 }
@@ -81,14 +75,11 @@ export interface ScanResult {
   warnings: string[];
   /**
    * Reasons the walk missed import edges it did not mean to skip — the
-   * `--max-files` cap firing, a file that would not parse, a specifier that
-   * would not resolve. Empty means every file reachable from the entry
-   * points was read in full.
+   * `--max-files` cap, a file that would not parse, a specifier that would
+   * not resolve. Empty means every file reachable from the entries was read.
    *
-   * Files dropped by `--exclude` are deliberately NOT listed: that omission
-   * was requested, so the graph still matches what the user asked to see.
-   * Consumers that simply live outside the entry points' reach are invisible
-   * to the walk and cannot be reported here at all.
+   * `--exclude` omissions are NOT listed: they were requested. Consumers
+   * outside the entries' reach are invisible to the walk entirely.
    */
   coverageGaps: string[];
 }
@@ -101,46 +92,40 @@ export interface ScanResult {
 export type FindingConfidence = 'high' | 'medium' | 'low';
 
 /**
- * Something worth a reader's attention in the Findings tab. `dead-export`/
- * `dead-reexport` are per-export findings (see field docs below for their
- * shape); `circular-import`/`dupe-import` are whole-graph structural
- * findings, where `name`/`relPath` carry a file count / path chain instead
- * of an export name.
+ * A row in the Findings tab. `dead-export`/`dead-reexport` are per-export;
+ * `circular-import`/`dupe-import` are whole-graph structural findings, whose
+ * `name`/`relPath` carry a file count / path chain instead of an export name.
  */
 export interface Finding {
   /**
    * `dead-export` for a name the file declares itself; `dead-reexport` for
    * one it forwards with `export ... from`; `circular-import` for one loop
-   * of files that import each other, or a file that imports itself;
-   * `dupe-import` for the same target module pulled in via more than one
-   * import/export statement from the same file.
+   * of files importing each other (or a self-import); `dupe-import` for one
+   * target module pulled in via several statements from the same file.
    */
   kind: 'dead-export' | 'dead-reexport' | 'circular-import' | 'dupe-import';
   fileId: string;
   /**
-   * Every file the finding covers, when that is more than `fileId` alone —
-   * for a `circular-import`, the files on the loop, of which `fileId` is the
-   * first. Rows from one tangled group overlap here on purpose: the same
-   * file can sit on many loops, and unioning `fileIds ?? [fileId]` across
-   * findings is how affected files are counted without double-counting it.
+   * Every file the finding covers, when that is more than `fileId` — for a
+   * `circular-import`, the files on the loop, `fileId` first. Rows from one
+   * tangled group overlap on purpose: unioning `fileIds ?? [fileId]` is how
+   * affected files are counted without double-counting a shared file.
    */
   fileIds?: string[];
   relPath: string;
   layer: string;
   /**
-   * For `dead-export`/`dead-reexport`: the exported name, as consumers
-   * would have to write it. For `circular-import`: how many files are on the
-   * loop, which is exactly how many `relPath` names (`"3 files"`), or
-   * `"self-import"`. For `dupe-import`: the imported module's label plus how
-   * many times it was imported (`"Button (×2)"`).
+   * `dead-export`/`dead-reexport`: the exported name as consumers write it.
+   * `circular-import`: how many files are on the loop (`"3 files"`), or
+   * `"self-import"`. `dupe-import`: the module's label and statement count
+   * (`"Button (×2)"`).
    */
   name: string;
   confidence: FindingConfidence;
   /**
-   * Why this was flagged. For `dead-export`/`dead-reexport`, below `high`,
-   * also what could still keep it alive. For `circular-import`, the context
-   * one loop cannot carry on its own: how large the mutually-reachable group
-   * around it is, and how many other loops were found in that group.
+   * Why this was flagged — below `high`, also what could still keep it
+   * alive. For `circular-import`, the context one loop cannot carry: the
+   * size of the mutually-reachable group, and how many loops it holds.
    */
   reason: string;
   /** What to do about it. */
@@ -157,22 +142,22 @@ export interface TreeNode {
   layer: string;
   note: string;
   warn: string;
-  /** Set when this file imports the same child module via more than one statement (e.g. a value import plus a type-only import, or two re-export lines). */
+  /** Set when this file imports the same child module via more than one statement (a value import plus a type-only one, say). */
   hint: string;
   /** If set, this occurrence is a compact reference — click jumps to the renderId it names. */
   ref: string | null;
-  /** Name(s) THIS occurrence's own direct parent edge calls it by — `exposedNames` of that one edge (for a plain import, identical to what's pulled; for a re-export, the forwarded/outward name, e.g. 'Button' even when the file itself pulls its default export internally as something else). '*' for an entry point, or when the edge's names couldn't be determined (namespace import, dynamic import, `require`, `export * from`). Drives the node's primary label in the viewer — falls back to the file's own name when '*'. */
+  /** What this occurrence's own parent edge calls it by — that edge's `exposedNames` (for a re-export, the outward name). '*' for an entry point, or when the names couldn't be determined. Drives the viewer's primary label, falling back to the file's own name on '*'. */
   importedAs: string[] | '*';
-  /** Whether the edge from THIS occurrence's parent is lazy — every statement linking the pair is a dynamic `import()` or a `require` inside a function. False for a root, which nothing imports. Drawn dotted. */
+  /** Whether the edge from this occurrence's parent is lazy — every statement linking the pair is a dynamic `import()` or an in-function `require`. False for a root. Drawn dotted. */
   isDeferred: boolean;
   fanIn: number;
   children: TreeNode[];
 }
 
 /**
- * Everything a generated report carries about the scan itself, independent
- * of how the graph is drawn. Both viewers embed one of these, and the
- * sidebar/Findings code that reads nothing else works in either.
+ * Everything a report carries about the scan itself, independent of how the
+ * graph is drawn. Both viewers embed one, so the sidebar/Findings code that
+ * reads nothing else works in either.
  */
 export interface ReportMeta {
   title: string;
@@ -185,11 +170,9 @@ export interface ReportMeta {
   /** `ScanResult.coverageGaps` — non-empty puts a caveat above the Findings list, since a file the walk never read could be the one importing a name listed there. */
   coverageGaps: string[];
   /**
-   * For the viewer's Findings tab, in three fixed blocks: dead-export/
-   * dead-reexport findings first (most-trustworthy first within that
-   * block), then circular-import findings, then dupe-import findings —
-   * each block internally sorted and always rendered as its own group
-   * section(s).
+   * For the Findings tab, in three fixed blocks, each rendered as its own
+   * group section: dead-export/dead-reexport (most trustworthy first),
+   * then circular-import, then dupe-import.
    */
   findings: Finding[];
   generatedAt: string;
@@ -203,9 +186,8 @@ export interface RenderData extends ReportMeta {
 /**
  * One file in the merged graph view.
  *
- * Where `TreeNode` is one *occurrence* — the same file appears once per
- * place that reaches it — this is one *file*, however many importers it
- * has. That is the whole point of the merged view: the shared module is
+ * Where `TreeNode` is one *occurrence* — one per place that reaches the file
+ * — this is one *file*, however many importers it has: the shared module is
  * drawn once, with an edge coming in from each of them.
  */
 export interface GraphNode {
@@ -217,43 +199,36 @@ export interface GraphNode {
   /** Summary of the file's external (package) imports — the same text the tree viewer puts on a node. */
   note: string;
   /**
-   * How many distinct local files import this one — which is exactly how
-   * many edges arrive at it on screen.
+   * How many distinct local files import this one — exactly how many edges
+   * arrive at it on screen.
    *
-   * Deliberately not `ScanResult.fanIn`, which counts import *statements*
-   * and so is larger wherever one file imports another twice. Here the
-   * repetition lives on the edge, as `GraphEdge.statements`.
+   * Not `ScanResult.fanIn`, which counts import *statements* and so is
+   * larger wherever one file imports another twice; that repetition lives
+   * on the edge, as `GraphEdge.statements`.
    */
   fanIn: number;
   /** How many distinct local files this one imports. */
   fanOut: number;
   /**
-   * How far the file is from an entry point at its furthest: the length of
-   * the LONGEST path to it, counted over forward edges only.
-   *
-   * This is a property of the whole project, not a screen position. The
-   * viewer measures the same thing again over whatever is currently on
-   * screen to decide which column to draw a node in, because a file that
-   * an entry imports directly and a deep chain also reaches belongs beside
-   * the entry when only the entry is open. What this is for is ordering:
-   * it sorts the payload so a node is defined after the things upstream of
-   * it, and two runs over an unchanged project produce the same file.
+   * Length of the LONGEST path from an entry point, over forward edges only
+   * — a property of the whole project, not a screen position. (The viewer
+   * re-measures depth over what is currently on screen to pick columns.)
+   * Used for ordering: it sorts the payload so a node comes after everything
+   * upstream of it, and two runs over an unchanged project agree.
    */
   depth: number;
   isEntry: boolean;
   /**
-   * Discovery position in the depth-first walk from the entry points. Only
-   * a tiebreak: it gives the layout a stable, import-order-ish starting
-   * sequence within a column, so two runs over an unchanged project draw
-   * the same picture.
+   * Discovery position in the depth-first walk from the entries. A tiebreak
+   * only: it gives the layout a stable, import-order-ish sequence within a
+   * column, so two runs over an unchanged project draw the same picture.
    */
   order: number;
 }
 
 /**
- * One drawn edge: every import/export statement linking the same pair of
- * files collapsed into a single line, since in the merged view they occupy
- * the same place on screen.
+ * One drawn edge: every statement linking the same pair of files collapsed
+ * into a single line, since they occupy the same place on screen.
  */
 export interface GraphEdge {
   from: string;
@@ -269,19 +244,18 @@ export interface GraphEdge {
   /** How many statements collapsed into this edge, deferred ones included. */
   statements: number;
   /**
-   * How many of those statements could actually be merged into one line —
-   * the same count `dupe-import` findings report, so a viewer warning drawn
-   * from this always has a row behind it. Deferred statements are left out:
-   * `lazy(() => import('./Page'))` next to `import type { Props } from
-   * './Page'` is two things asked of one module, and consolidating them
-   * would undo the code splitting.
+   * How many of those statements could be merged into one line — the same
+   * count `dupe-import` reports, so a viewer warning always has a row
+   * behind it. Deferred statements are left out: `lazy(() =>
+   * import('./Page'))` beside `import type { Props } from './Page'` is two
+   * things asked of one module, and merging them would undo code splitting.
    */
   mergeableStatements: number;
   /**
-   * True when this edge closes a cycle: layering had to leave it out to get
-   * an acyclic graph to lay out, so it is the one kind of edge that can
-   * point leftwards (or, for a self-import, at its own source). Drawn
-   * distinctly rather than dropped — the dependency is real.
+   * True when this edge closes a cycle: layering left it out to get an
+   * acyclic graph, so it is the one edge that can point leftwards (or, for
+   * a self-import, at its own source). Drawn distinctly rather than dropped
+   * — the dependency is real.
    */
   isBackEdge: boolean;
 }

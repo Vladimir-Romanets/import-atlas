@@ -8,16 +8,14 @@ import { computeDupeImports } from '../engine/dupeImports';
 import type { Edge, ExportFacts, FileNode, Finding, ScanResult } from '../types';
 
 /**
- * The findings list looks its help fragment up by group key
- * (`src/render/client/findings.ts` — `HELP_HTML[group.key]`) and simply omits
- * the `?` icon when the lookup misses. That failure is silent: no throw, no
- * console warning, just a section a reader can't get an explanation for. These
- * tests pin the two halves of the contract together — the keys the detector
- * can emit, and the fragment filenames on disk.
+ * The findings list looks a help fragment up by group key
+ * (`findings.ts` — `HELP_HTML[group.key]`) and omits the `?` icon when the
+ * lookup misses — silently: no throw, no warning, just a section with no
+ * explanation. These tests pin the two halves of that contract together:
+ * the keys the detector can emit, and the filenames on disk.
  *
- * They read the `.html` sources rather than importing
- * `helpContent.generated.ts`, which is git-ignored and, in CI, not yet written
- * when the suite runs (`pnpm test` precedes `pnpm run build`).
+ * They read the `.html` sources rather than `helpContent.generated.ts`,
+ * which is git-ignored and, in CI, not yet written when the suite runs.
  */
 const HELP_DIR = path.join(
   path.dirname(fileURLToPath(import.meta.url)),
@@ -31,10 +29,10 @@ const HELP_DIR = path.join(
 const groupKey = (finding: Finding): string => `${finding.kind}-${finding.confidence}`;
 
 /**
- * Every group the findings list documents today. The fixture below is asserted
- * against this set, so a new kind or confidence tier fails here first and its
- * author has to extend the fixture — which is what makes the two tests after
- * it cover the new group too.
+ * Every group the findings list documents today. The fixture below is
+ * asserted against this set, so a new kind or confidence tier fails here
+ * first and has to be added to the fixture — which is what makes the two
+ * tests after it cover the new group too.
  */
 const DOCUMENTED_GROUPS = [
   'circular-import-high',

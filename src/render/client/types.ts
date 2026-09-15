@@ -1,9 +1,9 @@
 import type { TreeNode } from '../../types';
 
 /**
- * A tree node once the client has laid it out: same shape as the JSON payload's
- * TreeNode, plus scratch fields the layout/render pipeline fills in before anything
- * reads them (countDescendants sets `_count`; buildLayout sets `depth`/`x`/`y`).
+ * A laid-out tree node: the payload's TreeNode plus the scratch fields the
+ * pipeline fills in before anything reads them — `_count` from
+ * countDescendants, `depth`/`x`/`y` from buildLayout.
  */
 export interface RenderNode extends TreeNode {
   children: RenderNode[];

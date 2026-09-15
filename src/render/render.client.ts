@@ -22,9 +22,8 @@ declare global {
 }
 
 const DATA = window.__IMPORT_ATLAS_DATA__;
-// The raw payload only carries the base TreeNode fields; the layout/render
-// pipeline below fills in the scratch fields (`_count`, `depth`, `x`, `y`)
-// before anything reads them.
+// The payload carries only the base TreeNode fields; the pipeline below
+// fills in the scratch ones (`_count`, `depth`, `x`, `y`) before any read.
 const forest = DATA.forest as unknown as RenderNode[];
 
 const colorOf = createColorScale(DATA.layers);
@@ -62,11 +61,10 @@ tabFindings.addEventListener("click", () => {
   activateTab("findings");
 });
 
-// Every viewport operation measures the SVG to work out where to pan or
-// zoom to, and a panel that isn't showing measures 0×0 — which would leave
-// the tree parked at a nonsense transform. The sidebar's tree controls stay
-// clickable while the Findings tab is up, so they switch back to the tree
-// first rather than being disabled.
+// Every viewport operation measures the SVG to know where to pan or zoom,
+// and a hidden panel measures 0×0, parking the tree at a nonsense
+// transform. The sidebar's tree controls stay clickable under the Findings
+// tab, so they switch back to the tree first rather than being disabled.
 function showTree(): void {
   activateTab("tree");
 }
@@ -84,18 +82,16 @@ const treeRenderer = createTreeRenderer({
 const toggleExpandBtn = byId<HTMLButtonElement>("toggleExpand");
 const toggleExpandText = byId("toggleExpandText");
 
-// Derived from the live `collapsed` set (not a separately tracked flag) so
-// it can never drift out of sync with reality — `collapsed` is also mutated
-// directly by clicking individual nodes, not just by this switch.
+// Derived from the live `collapsed` set rather than a flag of its own, so
+// it can't drift: clicking individual nodes mutates `collapsed` too.
 function renderToggleExpand(): void {
   const isFullyExpanded = collapsed.size === 0;
   toggleExpandBtn.setAttribute("aria-checked", String(isFullyExpanded));
   toggleExpandText.textContent = isFullyExpanded ? "Expanded" : "Collapsed";
 }
 
-// Every action that can change `collapsed` (this switch, or clicking a node
-// to expand/collapse it) must re-render the tree AND resync this switch —
-// routed through one function so neither path can forget the other.
+// Anything that changes `collapsed` must re-render the tree AND resync the
+// switch — routed through one function so neither path forgets the other.
 function renderTree(): void {
   treeRenderer.render();
   renderToggleExpand();
@@ -140,8 +136,8 @@ createSearch({
   byId: nodeById,
   searchInput: byId<HTMLInputElement>("search"),
   searchHint: byId("searchHint"),
-  // The tree opens on every keystroke, and can afford to: it only unfolds
-  // the ancestors of the one match, and the same chevrons fold them back.
+  // The tree can afford to open on every keystroke: it unfolds only the
+  // one match's ancestors, and the same chevrons fold them back.
   jumpTo: (id) => {
     showTree();
     nav.jumpTo(id);

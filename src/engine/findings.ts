@@ -1,11 +1,10 @@
 import type { Finding, FindingConfidence, ScanResult } from '../types';
 
 /**
- * Names some importer asked of a file, or `'*'` when one of them asked for
- * the module as a whole — a namespace import, a dynamic `import()`, a
- * `require()`, or an `export * from` chain whose own consumers can't be
- * pinned down. Once a file is `'*'`, nothing it exports can be called
- * unimported, so it is skipped entirely.
+ * Names asked of a file, or `'*'` when some importer asked for the module as
+ * a whole (a namespace/dynamic import, a `require()`, an `export * from`).
+ * Once a file is `'*'`, nothing it exports can be called unimported, so it
+ * is skipped entirely.
  */
 type RequestedNames = Set<string> | '*';
 
@@ -29,17 +28,14 @@ function addRequested(
 /**
  * What every file in the graph has been asked for, by name.
  *
- * Entry points are seeded as `'*'`: nothing inside the scan imports an
- * entry, so its exports would all look unimported, when in truth they serve
- * whatever lies outside the scan (a bundler, a test runner, a consumer of
- * the package).
+ * Entries are seeded as `'*'`: nothing inside the scan imports an entry, so
+ * its exports would all look unimported when in truth they serve whatever
+ * lies outside (a bundler, a test runner, a consumer of the package).
  *
- * `export * from './x'` needs no special handling: the scan already records
- * it as an edge carrying `names: '*'`, which marks x unknowable — blunt but
- * safe. Sharpening it (crediting x only with what the barrel itself is
- * asked for) would first need `export * from` told apart from
- * `export * as NS from`, which really does hand consumers the whole module;
- * both parse to the same wildcard edge today.
+ * `export * from './x'` needs no special handling — the scan records it as
+ * an edge with `names: '*'`, marking x unknowable. Blunt but safe:
+ * sharpening it would first need `export * from` told apart from
+ * `export * as NS from`, and both parse to the same wildcard edge today.
  */
 function buildRequestedTable(scanResult: ScanResult): Record<string, RequestedNames> {
   const requested: Record<string, RequestedNames> = {};
@@ -59,14 +55,14 @@ const REEXPORT_RECOMMENDATION =
   'Nothing imports this name from the barrel. Remove the re-export line — the file it points at stays reachable through its own path.';
 
 /**
- * Every export in the scanned graph that nothing asks for, ranked by how
- * much the import graph alone can justify the claim.
+ * Every export nothing asks for, ranked by how far the import graph alone
+ * justifies the claim.
  *
- * Unlike the tree's node pruning, this does NOT switch itself off when
+ * Unlike the tree's node pruning, this does NOT switch off when
  * `coverageGaps` is non-empty. A gap means some importer went unread, so a
- * name it requests would look unimported here — but a list is advisory and
- * reviewable in a way that a silently missing node is not. The viewer
- * carries the caveat above the list instead, so the reader can weigh it.
+ * name it requests looks unimported here — but a list is advisory and
+ * reviewable in a way a silently missing node is not, and the viewer prints
+ * the caveat above it.
  */
 export function computeFindings(scanResult: ScanResult): Finding[] {
   const requested = buildRequestedTable(scanResult);
@@ -82,9 +78,8 @@ export function computeFindings(scanResult: ScanResult): Finding[] {
     recommendation: string,
   ): void => {
     // A file reports each name once, however many statements export it.
-    // NUL separates the two halves of the key because a path may contain
-    // any printable character an export name can, so a visible delimiter
-    // could in principle belong to either side.
+    // NUL separates the halves of the key: a path can hold any printable
+    // character an export name can, so a visible delimiter is ambiguous.
     const key = `${fileId}\u0000${name}`;
     if (seen.has(key)) return;
     seen.add(key);
@@ -103,10 +98,10 @@ export function computeFindings(scanResult: ScanResult): Finding[] {
 
   for (const fileId of Object.keys(scanResult.nodes)) {
     const facts = scanResult.nodes[fileId].exports;
-    // Never parsed (an asset, or a file that wouldn't read) — an empty
-    // export list here means "unknown", not "exports nothing".
+    // Never parsed: an empty export list means "unknown" here, not
+    // "exports nothing".
     if (!facts) continue;
-    // `export = ...` replaces the whole module shape; its named exports
+    // `export = ...` replaces the whole module shape, so its named exports
     // can't be matched against what importers ask for.
     if (facts.hasExportEquals) continue;
 
@@ -159,17 +154,14 @@ export function computeFindings(scanResult: ScanResult): Finding[] {
 }
 
 /**
- * Orders findings from several detectors into the one list the viewer
- * renders: most trustworthy first, since the group a reader can act on
- * without checking anything should not sit below one that needs a second
- * opinion. Each detector's own row order survives within a confidence
- * level — `Array.prototype.sort` is stable — so a detector stays free to
- * decide how its own rows read.
+ * Orders several detectors' findings into the one list the viewer renders,
+ * most trustworthy first: what a reader can act on unchecked should not sit
+ * below what needs a second opinion. Each detector's own row order survives
+ * within a confidence level, `sort` being stable.
  *
- * Sorting the merged list is what makes this hold. Concatenating
- * already-sorted lists does not: appending a `high` detector after one that
- * emits `high` through `low` leaves the appended group below every hedged
- * row from the first.
+ * It has to be a sort of the merged list. Concatenating already-sorted
+ * lists leaves an appended `high` detector below every hedged row of one
+ * that emits `high` through `low`.
  */
 export function sortFindings(findings: Finding[]): Finding[] {
   return [...findings].sort((a, b) => RANK[a.confidence] - RANK[b.confidence]);

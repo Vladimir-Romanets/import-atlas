@@ -14,10 +14,9 @@ import {
 
 export interface GraphRenderer {
   /**
-   * Recompute what's visible, lay it out again, and draw. For anything that
-   * changes the graph on screen — including the chevrons and badges this
-   * renderer draws itself, so every route that touches `visibility` ends up
-   * here and `onVisibilityChange` fires on all of them.
+   * Recompute what's visible, lay it out again, and draw. Every route that
+   * touches `visibility` — the chevrons and badges drawn here included —
+   * goes through this, so `onVisibilityChange` fires on all of them.
    */
   refresh: () => void;
   /** Redraw the current layout. For anything that changes only what's *shown* of it — panning, zooming, selection. */
@@ -39,42 +38,37 @@ export interface GraphRendererOptions {
   viewport: Viewport;
   onSelect: (node: LayoutNode | null) => void;
   /**
-   * Called after every refresh, for chrome outside the canvas that is
-   * derived from `visibility` — the Collapsed/Expanded switch. Most of what
-   * opens and closes nodes is the chevrons and badges drawn in here, which
-   * the page outside has no way to observe.
+   * Called after every refresh, for chrome derived from `visibility` — the
+   * Collapsed/Expanded switch. Most of what opens and closes nodes is the
+   * chevrons and badges drawn here, which the page has no way to observe.
    */
   onVisibilityChange: () => void;
 }
 
 /**
- * World units drawn beyond the edges of the viewport. Wide enough that a
- * short pan lands on something already there — the redraw below only fires
- * once the viewport leaves what was last drawn.
+ * World units drawn beyond the viewport, so a short pan lands on something
+ * already there — the redraw below fires only once the viewport leaves what
+ * was last drawn.
  */
 const VIEW_MARGIN = 700;
 /**
- * Below this zoom, nodes are drawn as bare coloured blocks. A label set in
- * 11px type is unreadable at 40% anyway, and dropping the text, badges and
- * clip paths cuts the element count per node by an order of magnitude —
- * which is exactly the zoom level at which a reader is looking at hundreds
- * of nodes at once.
+ * Below this zoom, nodes are bare coloured blocks: 11px type is unreadable
+ * at 40% anyway, and dropping text, badges and clip paths cuts elements per
+ * node by an order of magnitude — at exactly the zoom where hundreds of
+ * nodes are on screen at once.
  */
 const DETAIL_ZOOM = 0.45;
 /**
- * Screen-space breathing room demanded around a node the walk up to an
- * importer steps to. A node flush against the edge of the viewport is
- * technically on screen and of no use to read, so it counts as off screen
- * and earns a pan.
+ * Screen-space margin demanded around a node the walk up to an importer
+ * steps to. A node flush against the viewport edge is of no use to read, so
+ * it counts as off screen and earns a pan.
  */
 const STEP_INSET = 48;
 
 /**
- * What the number in the left-hand badge means, for the reader who has just
- * put the cursor on it. A bare count leaves two things unsaid: which
- * direction it counts — importers, not imports, which is the one thing this
- * view can say and a tree cannot — and that it is a control at all. Both
- * belong here, since the badge is where a reader first meets the idea.
+ * Tooltip for the left-hand badge. A bare count leaves two things unsaid:
+ * which direction it counts (importers, not imports — the one thing this
+ * view can say and a tree cannot), and that it is a control at all.
  */
 export function importersTitle(
   fanIn: number,
@@ -91,20 +85,15 @@ export function importersTitle(
 }
 
 /**
- * The importer to step to when the reader clicks a node that is already
- * selected — the nearest one on the canvas.
+ * The importer to step to when the reader clicks an already-selected node:
+ * the one whose edge is shortest — the line the eye is already following
+ * back, and the one that keeps the view from jumping across the canvas. An
+ * importer behind a collapsed node is no use, and a self-import leads
+ * nowhere.
  *
- * With several importers there is no single right answer, so this takes the
- * one whose edge is shortest: that is the line the eye is already following
- * back from the node, and the one that keeps the view from jumping across
- * the canvas. An importer closed away behind a collapsed node is no use to
- * walk to, and a file importing itself leads nowhere.
- *
- * @param laidOut every node in the current layout, on screen or not — the
- * set the reader can reach, rather than the smaller set the virtualised
- * draw happens to have put in the DOM. The nearest importer is regularly
- * just off the edge of the viewport, and stepping to it is the caller's job
- * to make visible.
+ * @param laidOut every node in the current layout, on screen or not, rather
+ * than the smaller set the virtualised draw put in the DOM. The nearest
+ * importer is regularly just off-viewport; showing it is the caller's job.
  */
 export function nearestImporter(
   node: LayoutNode,
@@ -138,12 +127,10 @@ export interface WorldRect {
 /**
  * Whether a node's whole box lies inside a rectangle of the canvas.
  *
- * Split out of the pan below because it is the half that can be wrong in a
- * way nothing would show: `y` is the node's centre line while `x` is its
- * left edge, so the box runs from `y - NODE_H / 2` to `y + NODE_H / 2` but
- * from `x` to `x + NODE_W`, and an answer half a node out is the difference
- * between a step that pans and one that leaves the reader looking at a
- * clipped box.
+ * Split out of the pan below because it is the half that can be wrong
+ * invisibly: `y` is the node's centre line while `x` is its left edge, so
+ * the box runs `y ± NODE_H / 2` but `x` to `x + NODE_W`. Half a node out is
+ * the difference between a step that pans and one that clips.
  */
 export function fitsInView(node: Placed, view: WorldRect): boolean {
   return (
@@ -161,13 +148,12 @@ const covers = (outer: WorldRect, inner: WorldRect): boolean =>
   outer.y1 >= inner.y1;
 
 /**
- * Draws the merged graph, and draws only the part of it that is on screen.
+ * Draws the merged graph, and only the part of it that is on screen.
  *
- * Virtualisation is not an optimisation here, it is the feature working at
- * all: a few thousand files is an ordinary project and an ordinary project
- * is what this has to open. Laying every visible node out is cheap and
- * happens in full; putting one in the DOM is not, and happens only for
- * what the viewport can actually show.
+ * Virtualisation is not an optimisation here but the feature working at
+ * all: a few thousand files is an ordinary project. Laying every visible
+ * node out is cheap and happens in full; putting one in the DOM is not, and
+ * happens only for what the viewport can show.
  */
 export function createGraphRenderer({
   index,
@@ -185,11 +171,10 @@ export function createGraphRenderer({
   let selected: string | null = null;
   let highlight: Highlight = computeHighlight(null, index);
   /**
-   * Whether the selection was aimed at the node, rather than arrived at.
-   * Search selects whatever it lands on, and a reader who has just been
-   * carried to a file has not asked to leave it again — so the click that
-   * walks up to an importer is offered only for a node the reader picked
-   * out on the canvas.
+   * Whether the selection was aimed at, rather than arrived at. Search
+   * selects whatever it lands on, and a reader just carried to a file has
+   * not asked to leave it — so the click that walks up to an importer is
+   * offered only for a node picked out on the canvas.
    */
   let selectedByClick = false;
 
@@ -214,14 +199,11 @@ export function createGraphRenderer({
   };
 
   /**
-   * Pan — never zoom — until a node is on screen, and do nothing at all if
-   * it already is. Only the walk up to an importer needs this: the nearest
-   * importer is nearest among a node's importers, which in a wide graph can
-   * still be a screenful away, and a step that lands off-canvas is
-   * indistinguishable from a click that did nothing. Leaving the picture
-   * alone when the target is already in view matters just as much — moving
-   * it under a reader who can see where they are going is its own kind of
-   * disorienting.
+   * Pan — never zoom — until a node is on screen, and do nothing if it
+   * already is. Only the walk up to an importer needs this: the nearest
+   * importer can still be a screenful away, and a step landing off-canvas
+   * is indistinguishable from a click that did nothing. Not moving the
+   * picture when the target is already in view matters just as much.
    */
   const bringIntoView = (node: LayoutNode): void => {
     const rect = svg.getBoundingClientRect();
@@ -313,9 +295,9 @@ export function createGraphRenderer({
     rect.setAttribute("rx", "5");
 
     if (!detailed) {
-      // Zoomed out: a coloured block carrying layer and position, nothing
-      // that would be illegible anyway. No focus target either — tabbing
-      // through hundreds of unlabelled blocks helps nobody.
+      // Zoomed out: a coloured block carrying layer and position only. No
+      // focus target either — tabbing through hundreds of unlabelled
+      // blocks helps nobody.
       rect.setAttribute("class", "box box-far");
       rect.style.setProperty("--dot-l", col[0]);
       rect.style.setProperty("--dot-d", col[1]);
@@ -337,9 +319,8 @@ export function createGraphRenderer({
     marker.setAttribute("d", "M 6,1 H 11 V 26 H 6 Q 1,26 1,21 V 6 Q 1,1 6,1 Z");
     g.appendChild(marker);
 
-    // Numbered by draw order rather than by anything about the node: ids
-    // have to be unique within the document, and only the nodes actually
-    // drawn are in it.
+    // Numbered by draw order, not by node: ids only have to be unique
+    // within the document, and only drawn nodes are in it.
     const clipId = `gclip-${seq}`;
     const clip = document.createElementNS(SVGNS, "clipPath");
     clip.setAttribute("id", clipId);
@@ -349,10 +330,9 @@ export function createGraphRenderer({
     clip.appendChild(clipRect);
     g.appendChild(clip);
 
-    // The file's own name leads here, unlike the tree, where a node is one
-    // importer's reach into a file and is named after what that importer
-    // asked for. Merged, a node serves every importer at once, and the one
-    // name they all agree on is the file's.
+    // The file's own name leads here, unlike the tree, where a node is
+    // named after what one importer asked for. Merged, a node serves every
+    // importer at once, and the file's name is the one they all agree on.
     const fileName = fileNameOf(node.relPath);
     const folder = node.label === "index" ? folderOf(node.relPath) : "";
     const subText = folder ? `${folder}/${fileName}` : fileName;
@@ -374,19 +354,14 @@ export function createGraphRenderer({
     text.appendChild(subTspan);
     g.appendChild(text);
 
-    // Left-hand badge: how many files import this one, and the control
-    // that shows them. It sits where the incoming edges converge, which is
-    // the whole story this view has to tell — a "12" there is a shared
-    // module, and clicking it puts the twelve importers on screen.
+    // Left-hand badge: how many files import this one, and the control that
+    // draws them. It sits where the incoming edges converge — a "12" there
+    // is a shared module. Symmetric with the chevron on the right, which
+    // opens what the node imports; a tree can show neither direction.
     //
-    // Symmetric with the chevron on the right, which opens what the node
-    // imports. One node, both directions, neither of which a tree can show
-    // from the same box.
-    //
-    // Drawn only while it has something to offer: an importer that isn't
-    // on the canvas already. It stays through `showing` so that the same
-    // control can put back what it brought in — which is also why the two
-    // halves of the condition can't be folded into one.
+    // Drawn only while it has something to offer (an importer not already
+    // on the canvas), and kept through `showing` so the same control can
+    // put back what it brought in — hence the two-part condition.
     const showing = visibility.importersShown.has(node.id);
     const hidden = hiddenImporterCount(
       node.id,
@@ -398,13 +373,13 @@ export function createGraphRenderer({
       inG.setAttribute("class", showing ? "fan-in showing" : "fan-in");
       inG.setAttribute("tabindex", "0");
       inG.setAttribute("role", "button");
-      // Its own tooltip, which takes precedence over the node's: hovering
-      // the badge asks about the badge.
+      // Takes precedence over the node's tooltip: hovering the badge asks
+      // about the badge.
       const inTitle = document.createElementNS(SVGNS, "title");
       inTitle.textContent = importersTitle(node.fanIn, hidden, showing);
       inG.appendChild(inTitle);
-      // Distinct from the node's own id so that keyboard focus lands back
-      // on the badge, not the node behind it, after the redraw.
+      // Distinct from the node's own id, so focus lands back on the badge
+      // rather than the node behind it after the redraw.
       inG.dataset.id = `${node.id}#importers`;
       inG.setAttribute(
         "aria-label",
@@ -423,11 +398,11 @@ export function createGraphRenderer({
       inG.appendChild(count);
 
       const toggleImporters = (e: Event): void => {
-        // Without this the click also reaches the node behind the badge,
-        // which would open its imports at the same time.
+        // Otherwise the click also reaches the node behind the badge and
+        // opens its imports too.
         e.stopPropagation();
-        // The reader aimed at the badge, not at the node, so this does not
-        // arm the walk upwards — the next click on the node body does.
+        // Aimed at the badge, not the node, so this does not arm the walk
+        // upwards — the next click on the node body does.
         selectNode(node.id, false);
         onSelect(node);
         visibility.toggleImporters(node.id);
@@ -509,47 +484,40 @@ export function createGraphRenderer({
     title.textContent = describe(node);
     g.appendChild(title);
 
-    // Selecting opens, but never closes. Closing a node in a merged graph
-    // is not the local act it is in a tree: what it was holding open can
-    // be the only route to a whole region of the canvas, including
-    // importers the reader asked for by name somewhere else entirely. A
-    // click meant as "tell me about this one" would then take most of the
-    // picture with it. So the destructive half lives on the chevron, where
-    // it has to be aimed at.
+    // Selecting opens, but never closes. Closing a node here is not the
+    // local act it is in a tree: what it holds open can be the only route
+    // to a whole region of the canvas, so a click meant as "tell me about
+    // this one" would take most of the picture with it. The destructive
+    // half lives on the chevron, where it has to be aimed at.
     const activate = (): void => {
-      // Whether this click has an opening to do: not "does the file import
-      // anything" but "would opening it draw a box that isn't there" — the
-      // files it imports may all be on screen already, reached from
-      // somewhere else.
+      // Not "does the file import anything" but "would opening it draw a
+      // box that isn't there" — its imports may all be on screen already,
+      // reached from somewhere else.
       const opens =
         !visibility.expanded.has(node.id) &&
         hiddenImportCount(node.id, index, (id) => layoutById[id] !== undefined) >
           0;
 
-      // Clicking a node the reader has already clicked walks one step
-      // backwards, to the file that imports it. It is the click that had
-      // nothing left to do — the node is selected, and everything it
-      // imports is drawn — and backwards is the direction this view
-      // exists to travel, so
-      // repeating it traces a file's way back to the entry point without
-      // going near the sidebar.
+      // Clicking an already-clicked node walks one step backwards, to the
+      // file that imports it — the click that otherwise had nothing left
+      // to do. Repeating it traces a file's way back to the entry point
+      // without going near the sidebar.
       //
       // Two things come first. Opening: a node with imports still shut
-      // answers the click the way any other node would. And an aimed
-      // click: a file the reader searched for is selected on arrival, and
-      // the click that follows is how they look at it, not how they leave.
+      // answers the click like any other. And an aimed click: a searched-
+      // for file is selected on arrival, and the next click is how the
+      // reader looks at it, not how they leave.
       if (node.id === selected && selectedByClick && !opens) {
         const up = nearestImporter(node, index, layoutById);
         if (up !== undefined) {
           selectNode(up.id, true);
           onSelect(up);
-          // Pan first, then draw: the pan decides which part of the canvas
-          // the draw has to fill, and the node has to be in the DOM before
-          // focus can land on it.
+          // Pan first, then draw: the pan decides what the draw has to
+          // fill, and the node must be in the DOM before focus can land.
           bringIntoView(up);
           draw();
-          // Selection moved, so the keyboard should move with it — and a
-          // second Enter then steps up again.
+          // Selection moved, so the keyboard moves with it — a second
+          // Enter then steps up again.
           nodesG
             .querySelector<SVGGElement>(`[data-id="${up.id}"]`)
             ?.focus();
@@ -598,9 +566,9 @@ export function createGraphRenderer({
     nodesG.innerHTML = "";
 
     for (const link of layout.edges) {
-      // An edge is on screen when any part of the band between its two
-      // ends is — a long edge whose both endpoints are off-screen can
-      // still cross the middle of the view.
+      // An edge is on screen when any part of the band between its ends
+      // is: a long edge with both endpoints off-screen can still cross
+      // the middle of the view.
       const x0 = Math.min(link.from.x, link.to.x);
       const x1 = Math.max(link.from.x, link.to.x) + NODE_W;
       const y0 = Math.min(link.from.y, link.to.y);
@@ -634,10 +602,9 @@ export function createGraphRenderer({
     onVisibilityChange();
   };
 
-  // Panning and zooming redraw only when the viewport has left what was
-  // last drawn, or crossed the zoom level where node detail appears — so a
-  // drag across the margin costs nothing, and one across the canvas costs
-  // one redraw per screenful rather than one per frame.
+  // Redraw only once the viewport leaves what was last drawn, or crosses
+  // DETAIL_ZOOM: a drag across the margin then costs nothing, and one
+  // across the canvas costs a redraw per screenful, not per frame.
   let queued = false;
   const onViewportChange = (): void => {
     if (queued) return;
@@ -657,21 +624,18 @@ export function createGraphRenderer({
   };
   viewport.onChange(onViewportChange);
 
-  // A window that grows uncovers canvas the last draw never filled: the
-  // clip rect above is measured off the element, and nothing but a pan or
-  // zoom asks for it again. Observing the element rather than the window
-  // also catches the sidebar folding away and the page being zoomed. The
-  // callback only queues a frame, and drawing does not resize the svg, so
-  // it cannot set itself off again.
+  // A window that grows uncovers canvas the last draw never filled, and
+  // only a pan or zoom would ask for it again. Observing the element rather
+  // than the window also catches the sidebar folding away and page zoom.
+  // Drawing does not resize the svg, so this cannot set itself off again.
   new ResizeObserver(onViewportChange).observe(svg);
 
   return {
     refresh,
     draw,
     select: (id) => {
-      // Selected from outside — the search, so far. Not an aimed click, so
-      // the first click that follows belongs to the node the reader landed
-      // on rather than to its importer.
+      // Selected from outside (the search). Not an aimed click, so the
+      // next click belongs to the node landed on, not to its importer.
       selectNode(id, false);
       draw();
     },

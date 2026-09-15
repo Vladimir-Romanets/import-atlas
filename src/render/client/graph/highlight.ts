@@ -24,24 +24,22 @@ const EMPTY: Highlight = {
 
 /** Whether an edge asking for `request` gets to what `exposed` forwards. */
 function reaches(request: string[] | '*', exposed: string[] | '*'): boolean {
-  // Same "fail open" rule the tree uses: where the graph can't say which
-  // names a reach touches, it may touch any of them.
+  // The tree's "fail open" rule: where the graph can't say which names a
+  // reach touches, it may touch any of them.
   if (request === '*' || exposed === '*') return true;
   return exposed.some((name) => request.indexOf(name) !== -1);
 }
 
 /**
- * What to keep lit when a node is selected: the node, everything directly
+ * What stays lit when a node is selected: the node, everything directly
  * importing it, everything it directly imports — and, one hop further,
  * whatever the selection reaches *through* a barrel.
  *
- * That last part is this view's answer to a question the tree solves
- * structurally. The tree can afford to give a barrel a separate expansion
- * per set of names asked of it, showing each importer only its own share.
- * A merged graph draws the barrel once for everyone, so the same
- * information has to be carried by emphasis instead: select the importer
- * and the two re-exports it actually uses light up among the barrel's
- * twenty, while the barrel keeps its full shape on screen.
+ * That last part answers by emphasis what the tree solves structurally. A
+ * tree gives a barrel one expansion per set of names asked of it; a merged
+ * graph draws it once for everyone, so selecting the importer lights up the
+ * two re-exports it uses among the barrel's twenty, the barrel keeping its
+ * full shape.
  */
 export function computeHighlight(
   selectedId: string | null,
@@ -67,7 +65,7 @@ export function computeHighlight(
     edges.add(edgeKey(edge.from, edge.to));
 
     for (const onward of index.outEdges[edge.to] ?? []) {
-      // Only re-exports forward a name onward; a barrel's own plain
+      // Only re-exports forward a name onward — a barrel's own plain
       // imports are its business, not its consumers'.
       if (!onward.isReexport) continue;
       if (!reaches(edge.names, onward.exposedNames)) continue;

@@ -1,12 +1,12 @@
   /* Merged graph viewer — loaded after render.css, which it extends rather
      than replaces: nodes, layers, findings and the sidebar are the same
-     furniture, and only what a graph has and a tree hasn't is defined here. */
-  /* The edge legend itself is shared with the tree; only the cycle-closing
-     sample is the merged view's own, since a tree has no such edge. */
+     furniture, so only what a graph has and a tree hasn't is defined here. */
+  /* The edge legend is shared with the tree; only the cycle-closing sample
+     is the merged view's own, a tree having no such edge. */
   .edge-sample.back{border-top-style:dashed;border-top-color:var(--danger);}
 
   /* Zoomed far out, a node is a block of its layer's colour and nothing
-     else — see DETAIL_ZOOM in graphRenderer.ts. */
+     more — see DETAIL_ZOOM in graphRenderer.ts. */
   .box-far{fill:var(--dot-l);stroke:none;opacity:0.85;}
   @media (prefers-color-scheme: dark){ .box-far{fill:var(--dot-d);} }
 
@@ -22,8 +22,8 @@
   .fan-in.showing text{fill:var(--surface);}
   .node.active .fan-in circle{stroke:var(--highlight);}
 
-  /* The chevron closes a node again, which a click on its body will not
-     do — so it is a control of its own, focusable like the fan-in badge. */
+  /* The chevron closes a node, which a click on its body will not do — so
+     it is a control of its own, focusable like the fan-in badge. */
   .chev-node{cursor:pointer;}
   .chev-node:hover circle{stroke:var(--text-muted);}
   .chev-node:focus{outline:none;}
@@ -31,10 +31,10 @@
 
   .edge-back{stroke:var(--danger)!important;stroke-dasharray:5 4;opacity:0.75;}
 
-  /* With something selected, the picture splits three ways: what the
+  /* With something selected the picture splits three ways: what the
      selection touches, what it reaches THROUGH a barrel, and everything
-     else — which stays on screen, faintly, because a dependency you can no
-     longer see is one you can no longer judge. */
+     else — kept on screen faintly, since a dependency you can't see is one
+     you can't judge. */
   .edge-hl{opacity:1;stroke-width:1.5;}
   .edge-reached{opacity:1;stroke-width:1.5;stroke:var(--highlight)!important;}
   .edge-dim{opacity:0.12;}

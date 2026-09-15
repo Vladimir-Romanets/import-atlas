@@ -8,9 +8,9 @@ export interface GraphLayout {
 }
 
 /**
- * How many times rows are re-sorted to untangle edges. Each sweep is one
- * pass over every column; the first two do nearly all the work, and past
- * four the picture stops changing.
+ * How many times rows are re-sorted to untangle edges, one pass over every
+ * column each. The first two do nearly all the work; past four the picture
+ * stops changing.
  */
 const ORDER_SWEEPS = 4;
 /** How many times rows are nudged towards their neighbours' height. */
@@ -32,17 +32,14 @@ const median = (values: number[]): number => {
 
 /**
  * Columns for what is on screen: the longest path to each node *within the
- * visible set*, so every forward edge still points rightwards and no node
- * sits further right than it has to.
+ * visible set*, so every forward edge points rightwards and no node sits
+ * further right than it has to.
  *
- * Measuring against the visible set rather than the whole project is what
- * keeps the picture compact. `GraphNode.depth` is the same measurement
- * taken over everything, and using it directly puts a widely-shared barrel
- * in the column of its deepest importer anywhere in the codebase — three
- * hundred columns right of the entry point that also imports it directly,
- * with an edge running the whole way back. Nodes do shift sideways as
- * things are opened and closed, but only then, and only because what they
- * sit behind has actually changed.
+ * Measuring the visible set rather than the whole project is what keeps the
+ * picture compact. `GraphNode.depth` is the same measurement over
+ * everything, and using it directly would put a shared barrel in the column
+ * of its deepest importer anywhere in the codebase — hundreds of columns
+ * right of an entry that imports it directly, with an edge running back.
  */
 function assignColumns(
   nodes: LayoutNode[],
@@ -57,9 +54,8 @@ function assignColumns(
     out.set(node.id, []);
   }
   for (const edge of edges) {
-    // A cycle-closing edge is left out here for the same reason it was cut
-    // when the graph was built: nothing can be laid out left to right
-    // while it is in.
+    // Left out for the same reason it was cut when the graph was built:
+    // nothing lays out left to right while a back edge is in.
     if (edge.isBackEdge || edge.from === edge.to) continue;
     if (!column.has(edge.from) || !column.has(edge.to)) continue;
     out.get(edge.from)!.push(edge.to);
@@ -85,12 +81,11 @@ function assignColumns(
 
 /**
  * Places the visible part of the merged graph: columns by distance from
- * whatever is furthest upstream of a node, rows chosen to keep edges from
- * crossing more than they must.
+ * whatever is furthest upstream, rows chosen to keep edges from crossing.
  *
- * The vertical axis is where most of the work happens: repeated barycentre
- * sweeps to order rows, then a few passes pulling each node towards the
- * middle of its neighbours without letting a column's rows overlap.
+ * The vertical axis is most of the work — barycentre sweeps to order rows,
+ * then passes pulling each node towards the middle of its neighbours
+ * without letting a column's rows overlap.
  */
 export function layoutGraph(
   nodes: GraphNode[],
@@ -110,8 +105,8 @@ export function layoutGraph(
   const byId: Record<string, LayoutNode> = {};
   for (const node of layoutNodes) byId[node.id] = node;
 
-  // Neighbours among the VISIBLE nodes only — an edge to something the
-  // reader hasn't opened has no row to be pulled towards.
+  // Neighbours among the VISIBLE nodes only — an unopened node has no row
+  // to be pulled towards.
   const upstream: Record<string, LayoutNode[]> = {};
   const downstream: Record<string, LayoutNode[]> = {};
   for (const node of layoutNodes) {
@@ -132,10 +127,8 @@ export function layoutGraph(
 
   assignColumns(layoutNodes, edges);
 
-  // ---------------------------------------------------------------------
-  // Columns, in discovery order to start with — `nodes` already arrives
-  // sorted that way from `buildGraph`.
-  // ---------------------------------------------------------------------
+  // Columns, in discovery order — `nodes` arrives sorted that way from
+  // `buildGraph`.
   const columnAt = new Map<number, LayoutNode[]>();
   for (const node of layoutNodes) {
     const column = columnAt.get(node.x);
@@ -152,11 +145,9 @@ export function layoutGraph(
   };
   columns.forEach(applyRows);
 
-  // ---------------------------------------------------------------------
   // Ordering: sort each column by the average row of its neighbours in the
   // direction the sweep came from. A node with no neighbours on that side
-  // keeps the row it has, which is what stops untethered nodes drifting.
-  // ---------------------------------------------------------------------
+  // keeps its row, which stops untethered nodes drifting.
   const sweep = (
     ordered: LayoutNode[][],
     neighbours: Record<string, LayoutNode[]>,
@@ -179,11 +170,9 @@ export function layoutGraph(
     else sweep(columns.slice(0, -1).reverse(), downstream);
   }
 
-  // ---------------------------------------------------------------------
   // Coordinates: start evenly spaced, then pull each node towards the
-  // median of its neighbours — median rather than mean so one far-flung
-  // importer can't drag a node away from the cluster it belongs to.
-  // ---------------------------------------------------------------------
+  // median of its neighbours — median rather than mean, so one far-flung
+  // importer can't drag a node away from its cluster.
   for (const column of columns) {
     column.forEach((node, i) => {
       node.y = i * ROW_H;
@@ -206,10 +195,9 @@ export function layoutGraph(
         previous = node.y;
       });
 
-      // Rows can only ever be pushed DOWN by the separation rule above, so
-      // a crowded column drifts a little further from its neighbours on
-      // every pass. Shifting the whole column back by its average drift
-      // undoes that without disturbing the spacing inside it.
+      // The separation rule above only ever pushes DOWN, so a crowded
+      // column drifts further from its neighbours each pass. Shifting the
+      // column back by its average drift undoes that, spacing intact.
       const drift = mean(column.map((node, i) => node.y - desired[i]));
       if (drift !== 0) for (const node of column) node.y -= drift;
     }
@@ -220,9 +208,7 @@ export function layoutGraph(
     place(columns.slice(0, -1).reverse(), downstream);
   }
 
-  // ---------------------------------------------------------------------
   // Normalise so the picture starts at the origin.
-  // ---------------------------------------------------------------------
   let minY = Infinity;
   for (const node of layoutNodes) {
     if (node.y < minY) minY = node.y;

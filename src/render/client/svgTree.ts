@@ -26,14 +26,11 @@ export function createTreeRenderer({
 }: TreeRendererOptions): TreeRenderer {
   let visibleNodes: RenderNode[] = [];
   let visibleEdges: [RenderNode, RenderNode][] = [];
-  // Which node reads as "selected" — set explicitly on click/keyboard
-  // activation rather than derived from `:focus-visible`, since browsers
-  // deliberately suppress that ring for mouse-triggered focus (even a
-  // programmatic `.focus()` call made from inside a click handler still
-  // counts as mouse-modality) — so it would never show for a mouse click,
-  // only for Tab-based keyboard focus. Persists across re-renders here,
-  // in this closure, independent of whatever DOM element currently holds
-  // it (that element gets destroyed and recreated on every render()).
+  // Which node reads as "selected". Set explicitly on activation rather
+  // than derived from `:focus-visible`, which browsers suppress for
+  // mouse-triggered focus (a programmatic `.focus()` inside a click
+  // handler included), so it would show only for Tab. Lives in this
+  // closure, since render() destroys and recreates the element holding it.
   let activeId: string | null = null;
 
   const renderEdge = ([p, c]: [RenderNode, RenderNode]) => {
@@ -45,8 +42,8 @@ export function createTreeRenderer({
     const d = `M ${px} ${py} H ${mid} V ${cy} H ${cx}`;
     const path = document.createElementNS(SVGNS, "path");
     path.setAttribute("d", d);
-    // A tree node has exactly one parent, so the edge drawn into it is the
-    // one its own `isDeferred` describes.
+    // A tree node has one parent, so the edge into it is the one its own
+    // `isDeferred` describes.
     path.setAttribute("class", c.isDeferred ? "edge edge-deferred" : "edge");
     const col = colorOf(c.layer);
     path.style.setProperty("--dot-l", col[0]);
@@ -65,16 +62,16 @@ export function createTreeRenderer({
     g.setAttribute("role", "button");
     g.dataset.id = node.renderId;
 
-    // Import specifier used by the caller (e.g. 'Button'),
-    // falling back to the filename for entry points or namespace/dynamic imports.
+    // The specifier the caller used ('Button'); '*' for an entry point or a
+    // namespace/dynamic import, where the filename has to stand in.
     const importedAs =
       node.importedAs !== "*" && node.importedAs.length > 0
         ? node.importedAs.join(", ")
         : node.label;
     const fileName = fileNameOf(node.relPath);
     const folder = node.label === "index" ? folderOf(node.relPath) : "";
-    // Secondary label showing the actual filename (with extension).
-    // Includes parent folder for index/barrel files to avoid ambiguity.
+    // Secondary label: the filename with its extension, prefixed by the
+    // parent folder for index/barrel files, which are otherwise ambiguous.
     const subText = folder ? `${folder}/${fileName}` : fileName;
     const fullLabel =
       importedAs !== node.label
@@ -100,10 +97,9 @@ export function createTreeRenderer({
     marker.setAttribute("d", "M 6,1 H 11 V 26 H 6 Q 1,26 1,21 V 6 Q 1,1 6,1 Z");
     g.appendChild(marker);
 
-    // Safety net: even with shortLabel's width estimate, a label can still
-    // run wider than the box (unusual fonts, estimate drift). Clip it to
-    // the node's own bounds so it's cut off cleanly instead of spilling
-    // into neighboring nodes/icons.
+    // Safety net: despite shortLabel's width estimate, a label can still
+    // run wider than the box (unusual fonts, estimate drift). Clipping to
+    // the node's bounds cuts it off instead of spilling into neighbours.
     const clipId = `label-clip-${index}`;
     const clip = document.createElementNS(SVGNS, "clipPath");
     clip.setAttribute("id", clipId);
@@ -137,9 +133,8 @@ export function createTreeRenderer({
 
     const rightX = NODE_W - 10;
     const hasVisibleChildren = node._count > 0;
-    // Mirrors buildLayout's own test: a node reads as open only when there
-    // are children actually laid out beneath it, which a reference nobody
-    // has opened yet does not have.
+    // Mirrors buildLayout's test: a node reads as open only with children
+    // laid out beneath it, which an unopened reference has none of.
     const isOpen = node.children.length > 0 && !collapsed.has(node.renderId);
     const showBadge = hasVisibleChildren && !isOpen;
     const badgeWidth = showBadge ? 8 + String(node._count).length * 6.5 : 0;
@@ -209,12 +204,10 @@ export function createTreeRenderer({
     g.appendChild(title);
 
     g.addEventListener("click", () => {
-      // Browsers don't consistently focus a clicked element just because it
-      // has tabindex (Chrome mostly does, Firefox/Safari often don't) — so
-      // relying on that to know what to re-focus after `render()` rebuilds
-      // the DOM is unreliable. Focus it explicitly here instead, so
-      // `render()`'s "restore whatever had focus" capture always has
-      // something correct to find, on every browser, mouse or keyboard.
+      // Browsers don't consistently focus a clicked element just for
+      // having tabindex (Chrome mostly does, Firefox/Safari often don't).
+      // Focusing explicitly gives `render()`'s "restore whatever had
+      // focus" something correct to find, on every browser.
       g.focus();
       activeId = node.renderId;
       onActivate(node);
@@ -239,8 +232,8 @@ export function createTreeRenderer({
       nextY += ROW_H * 2.2;
     });
 
-    // Rebuilding DOM destroys the focused element.
-    // Preserve the focused node's renderId and restore focus after re-rendering.
+    // Rebuilding the DOM destroys the focused element, so its renderId is
+    // kept here and focus restored below.
     const activeEl = document.activeElement;
     const focusedId =
       activeEl instanceof SVGGElement && nodesG.contains(activeEl)

@@ -72,29 +72,27 @@ export function createNavigation({
   const onNodeActivate = (node: RenderNode) => {
     showDetail(node);
     // A node standing for an occurrence expanded elsewhere gets that
-    // occurrence's children copied under it on first open, so it behaves
-    // like any other node from then on. Jumping to the full expansion is
-    // still offered, from the detail panel.
+    // occurrence's children copied under it on first open, and behaves like
+    // any other node after. The detail panel still offers the jump to the
+    // full expansion.
     if (materializeChildren(node, byId, parentOf)) {
-      // The click that fetched the children is also the click that opens
-      // them. Falling through to the toggle below would close the node the
-      // moment it gained something to show, costing a second click.
+      // The click that fetched the children also opens them: falling
+      // through to the toggle would close the node the moment it gained
+      // something to show, costing a second click.
       collapsed.delete(node.renderId);
     } else if (node._count > 0) {
       // `_count`, not `children.length`, is what svgTree.ts draws the
-      // chevron/badge from — toggling `collapsed` on a node that shows
-      // neither would be an invisible no-op click that still desyncs the
-      // Expand/Collapse switch.
+      // chevron/badge from. Toggling `collapsed` on a node showing neither
+      // is an invisible no-op that still desyncs the Expand/Collapse switch.
       if (collapsed.has(node.renderId)) {
         collapsed.delete(node.renderId);
       } else {
         collapsed.add(node.renderId);
       }
     }
-    // Always re-render, even for a leaf with nothing to expand/collapse —
-    // svgTree.ts's `.active` class (which node reads as "selected") is only
-    // ever painted during a render pass, so skipping it here would leave a
-    // plain leaf click with no visible feedback at all.
+    // Always re-render, even for a leaf with nothing to expand: svgTree.ts
+    // paints `.active` (which node reads as selected) only during a render
+    // pass, so skipping it leaves a leaf click with no feedback at all.
     render();
   };
 

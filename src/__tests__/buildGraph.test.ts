@@ -141,9 +141,9 @@ describe('buildGraph — merging', () => {
   });
 
   it('leaves deferred statements out of the mergeable count', () => {
-    // The counts `computeDupeImports` arrives at for the same three pairs —
-    // see `dupeImports.test.ts`. The viewer's duplicate warning reads this
-    // field, so anything it flags has a Findings row waiting for it.
+    // The counts `computeDupeImports` reaches for the same three pairs (see
+    // `dupeImports.test.ts`). The viewer's duplicate warning reads this
+    // field, so anything it flags has a Findings row waiting.
     const graph = buildGraph(
       makeScan(
         ['app/routes.ts'],
@@ -193,9 +193,8 @@ describe('buildGraph — merging', () => {
 
 describe('buildGraph — depth', () => {
   it('measures a node from its furthest importer, not its nearest', () => {
-    // entry imports shared directly AND through a three-file chain.
-    // Measured by shortest path it would come out at 1, which would put it
-    // upstream of files that import it.
+    // entry imports shared directly AND through a three-file chain. By
+    // shortest path it would come out at 1, upstream of files importing it.
     const graph = buildGraph(
       makeScan(
         ['app/entry.ts'],

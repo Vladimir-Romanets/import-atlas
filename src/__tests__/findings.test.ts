@@ -316,9 +316,9 @@ describe('sortFindings — the order the viewer renders groups in', () => {
   };
 
   it('lifts a high-confidence detector above another detector\'s hedged rows', () => {
-    // The regression this guards: computeFindings emits high through low, so
-    // plain concatenation buried the two always-high detectors appended after
-    // it beneath every medium and low row.
+    // The regression guarded: computeFindings emits high through low, so
+    // plain concatenation buried the two always-high detectors appended
+    // after it beneath every medium and low row.
     const merged = [
       at('dead-export', 'high', 'a'),
       at('dead-export', 'medium', 'b'),

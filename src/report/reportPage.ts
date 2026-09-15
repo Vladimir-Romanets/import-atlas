@@ -12,8 +12,8 @@ export interface ReportOptions {
 
 /**
  * Everything a report says about the scan itself — the sidebar's legend and
- * fan-in table, the Findings tab, the warnings. Shared by both viewers,
- * which differ only in how they draw the graph.
+ * fan-in table, the Findings tab, the warnings. Both viewers share it and
+ * differ only in how they draw the graph.
  */
 export function buildReportMeta(
   scanResult: ScanResult,
@@ -82,13 +82,13 @@ export function reportPage({
   script,
   data,
 }: ReportPage): string {
-  // `</script>` inside the payload would close the tag it is sitting in;
-  // escaping every `<` is the blunt version of that check, and costs a few
-  // bytes of a file nobody reads by hand.
+  // `</script>` inside the payload would close the tag it sits in; escaping
+  // every `<` is the blunt version of that check, costing a few bytes of a
+  // file nobody reads by hand.
   //
-  // `stringifyDeep`, not `JSON.stringify`, because the tree payload nests
-  // one level per import-chain link and a deep enough chain overflows the
-  // call stack `JSON.stringify` recurses over.
+  // `stringifyDeep`, not `JSON.stringify`: the tree payload nests one level
+  // per import-chain link, and a deep enough chain overflows the call stack
+  // `JSON.stringify` recurses over.
   const dataJson = stringifyDeep(data).replace(/</g, "\\u003c");
 
   return `<!doctype html>
