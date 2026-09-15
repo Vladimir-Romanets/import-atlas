@@ -378,3 +378,38 @@ describe('computeCircularImports', () => {
     expectValidCycle(findings[0], scan.edges.filter((e) => !e.isDeferred));
   });
 });
+
+describe('computeCircularImports — deep chains (stack-depth regression)', () => {
+  it('walks a 10,000-link acyclic chain without overflowing the call stack', () => {
+    const N = 10000;
+    const ids = Array.from({ length: N }, (_, i) => `f${i}.ts`);
+    const edges: Edge[] = [];
+    for (let i = 0; i < N - 1; i++) edges.push(edge(`f${i}.ts`, `f${i + 1}.ts`, ['x']));
+    const scan = makeScan(ids, edges);
+
+    let findings: Finding[] = [];
+    expect(() => {
+      findings = computeCircularImports(scan);
+    }).not.toThrow();
+    // No back edge anywhere, so every node is its own trivial component —
+    // nothing to report.
+    expect(findings).toEqual([]);
+  });
+
+  it('still finds the cycle when a 10,000-link chain loops back on itself', () => {
+    const N = 10000;
+    const ids = Array.from({ length: N }, (_, i) => `f${i}.ts`);
+    const edges: Edge[] = [];
+    for (let i = 0; i < N - 1; i++) edges.push(edge(`f${i}.ts`, `f${i + 1}.ts`, ['x']));
+    edges.push(edge(`f${N - 1}.ts`, 'f0.ts', ['x']));
+    const scan = makeScan(ids, edges);
+
+    const findings = computeCircularImports(scan);
+    expect(findings).toHaveLength(1);
+    // No loop of `maxCycleLength` (default 4) or fewer exists in a pure
+    // ring this large, so this is the "no loop short enough to list" row —
+    // the whole ring, named through its alphabetically-first file.
+    expect(findings[0].fileIds).toHaveLength(N);
+    expectValidCycle(findings[0], edges);
+  });
+});

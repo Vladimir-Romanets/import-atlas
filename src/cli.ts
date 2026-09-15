@@ -194,10 +194,11 @@ program
       maxFiles: opts.maxFiles
     });
 
-    // Merged first, deliberately. The tree is the report that can still fail
-    // on a deeply chained project (see KNOWN_ISSUES.md), so writing the
-    // sturdier one first leaves the reader with something to open when it
-    // does — the rule to keep as reports are added is sturdiest first.
+    // Merged first, deliberately. The merged graph is the sturdier of the
+    // two — flat arrays of nodes and edges, rather than a tree that nests one
+    // level per import-chain link — so writing it first leaves the reader
+    // with something to open if the other throws. The rule to keep as
+    // reports are added is sturdiest first.
     const graph = buildGraph(result);
     fs.writeFileSync(
       opts.outMerged,
