@@ -1,4 +1,7 @@
-# import-atlas
+<div align="center" style="background-color: #0a121d">
+  <img src="./docs/thumb.png" width="320px" title="import-atlas" alt="import-atlas - Scan the local import graph of a JavaScript or TypeScript project" />
+</div>
+<div align="center">
 
 [![npm version](https://img.shields.io/npm/v/import-atlas.svg)](https://www.npmjs.com/package/import-atlas)
 [![CI](https://github.com/Vladimir-Romanets/import-atlas/actions/workflows/ci.yml/badge.svg)](https://github.com/Vladimir-Romanets/import-atlas/actions/workflows/ci.yml)
@@ -6,6 +9,8 @@
 [![Downloads](https://img.shields.io/npm/dm/import-atlas.svg)](https://www.npmjs.com/package/import-atlas)
 [![Types](https://img.shields.io/npm/types/import-atlas.svg)](https://www.npmjs.com/package/import-atlas)
 [![Node engines](https://img.shields.io/node/v/import-atlas.svg)](https://www.npmjs.com/package/import-atlas)
+
+</div>
 
 Scan the local import graph of a JavaScript or TypeScript project, starting from one or more entry files, and get it back as an interactive dependency tree in a single HTML file. Runs from the command line and needs no configuration. If the project has a `tsconfig.json`, its `paths` aliases (like `@/*`) are resolved for you.
 
@@ -130,22 +135,22 @@ For repeat use, put it in `package.json`:
 
 ### Options (every command)
 
-| Flag                       | Default       | Description                                                                                                                                              |
-| -------------------------- | ------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `-r, --root <dir>`         | cwd           | Project root. Entry paths are resolved against it (not against cwd), report paths are shown relative to it, and `tsconfig.json` is searched for from it. |
-| `-c, --tsconfig <path>`    | auto-detected | Explicit `tsconfig.json` path, if it isn't the nearest one above the root.                                                                               |
-| `-e, --exclude <regex...>` | none          | Skip files whose root-relative path matches any of these regexes. Accepts multiple values, e.g. `--exclude "\.test\." "__mocks__"`.                      |
+| Flag                       | Default              | Description                                                                                                                                                                                                                                                                                                     |
+| -------------------------- | -------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `-r, --root <dir>`         | cwd                  | Project root. Entry paths are resolved against it (not against cwd), report paths are shown relative to it, and `tsconfig.json` is searched for from it.                                                                                                                                                        |
+| `-c, --tsconfig <path>`    | auto-detected        | Explicit `tsconfig.json` path, if it isn't the nearest one above the root.                                                                                                                                                                                                                                      |
+| `-e, --exclude <regex...>` | none                 | Skip files whose root-relative path matches any of these regexes. Accepts multiple values, e.g. `--exclude "\.test\." "__mocks__"`.                                                                                                                                                                             |
 | `--max-files <n>`          | 4000, `merged` 10000 | Safety cap on how many files a single scan will visit. Higher for `merged`, which draws a shared file once rather than once per place reaching it, and so stays legible at sizes a tree would not. `all` keeps the tree's 4000, since one scan feeds every report and the tree is the one that gives out first. |
-| `-o, --out <file>`         | per command   | Where to write the output. `graph` writes HTML, defaulting to `import-graph.html`, and `merged` to `import-graph-merged.html`; `scan` writes JSON, and prints to stdout when the flag is omitted. `all` writes one file per report, named by `--out-tree` and `--out-merged` instead. |
+| `-o, --out <file>`         | per command          | Where to write the output. `graph` writes HTML, defaulting to `import-graph.html`, and `merged` to `import-graph-merged.html`; `scan` writes JSON, and prints to stdout when the flag is omitted. `all` writes one file per report, named by `--out-tree` and `--out-merged` instead.                           |
 
 ### `graph`, `merged` and `all` options
 
-| Flag                       | Default                                | Description                                                                  |
-| -------------------------- | -------------------------------------- | ---------------------------------------------------------------------------- |
-| `-t, --title <title>`      | `Import Graph` / `Import Graph (merged)` | Page title shown in the sidebar and browser tab. `all` takes one title and appends " (merged)" to the merged report's. |
-| `--max-cycle-length <n>`   | 4                                      | Longest circular-import loop reported as its own row in the Findings tab.    |
-| `--json <file>`            | —                                      | Also dump the raw graph as JSON alongside the HTML.                          |
-| `--open`                   | off                                    | Open the generated HTML in the OS default browser.                           |
+| Flag                     | Default                                  | Description                                                                                                            |
+| ------------------------ | ---------------------------------------- | ---------------------------------------------------------------------------------------------------------------------- |
+| `-t, --title <title>`    | `Import Graph` / `Import Graph (merged)` | Page title shown in the sidebar and browser tab. `all` takes one title and appends " (merged)" to the merged report's. |
+| `--max-cycle-length <n>` | 4                                        | Longest circular-import loop reported as its own row in the Findings tab.                                              |
+| `--json <file>`          | —                                        | Also dump the raw graph as JSON alongside the HTML.                                                                    |
+| `--open`                 | off                                      | Open the generated HTML in the OS default browser.                                                                     |
 
 ## Using it with file-system routers (Next.js, Nuxt, SvelteKit, Remix…)
 
