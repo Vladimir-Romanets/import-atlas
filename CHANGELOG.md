@@ -1,3 +1,10 @@
+# [0.14.0](https://github.com/Vladimir-Romanets/import-atlas/compare/v0.13.1...v0.14.0) (2026-09-15)
+
+
+### Features
+
+* add new logo and refresh report/README branding ([#27](https://github.com/Vladimir-Romanets/import-atlas/issues/27)) ([ead29a6](https://github.com/Vladimir-Romanets/import-atlas/commit/ead29a60d97c3b26b7bfca30f67788d30f40f0b7))
+
 ## [0.13.1](https://github.com/Vladimir-Romanets/import-atlas/compare/v0.13.0...v0.13.1) (2026-09-15)
 
 
