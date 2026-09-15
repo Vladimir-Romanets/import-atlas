@@ -89,7 +89,8 @@
   svg#canvas{width:100%;height:100%;display:block;cursor:grab;}
   svg#canvas.dragging{cursor:grabbing;}
   .zoom-controls{position:absolute;right:16px;bottom:16px;display:flex;flex-direction:column;gap:6px;z-index:2;}
-  .zoom-controls button{width:30px;height:30px;border-radius:6px;border:1px solid var(--border);background:var(--surface);color:var(--text);font-size:15px;line-height:1;cursor:pointer;box-shadow:0 1px 2px rgba(0,0,0,0.08);}
+  .zoom-controls button{width:30px;height:30px;border-radius:6px;border:1px solid var(--border);background:var(--surface);color:var(--text);font-size:15px;line-height:1;cursor:pointer;box-shadow:0 1px 2px rgba(0,0,0,0.08);user-select: none;-webkit-user-select: none;}
+  .zoom-controls button:hover,.zoom-controls button:focus-visible{border-color:var(--text-muted);}
   .node{cursor:pointer;}
   .node:focus{outline:none;}
   .node text{user-select:none;-webkit-user-select:none;}

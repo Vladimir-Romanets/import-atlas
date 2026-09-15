@@ -14,7 +14,7 @@
      and the control that puts those importers on screen. */
   .fan-in{cursor:pointer;}
   .fan-in circle{fill:var(--surface);stroke:var(--border-strong);stroke-width:1px;}
-  .fan-in text{font-family:var(--font-mono);font-size:9px;font-weight:500;fill:var(--text-muted);}
+  .fan-in text{font-family:var(--font-mono);font-size:8px;font-weight:400;fill:var(--text-muted);}
   .fan-in:hover circle{stroke:var(--text-muted);}
   .fan-in:focus{outline:none;}
   .fan-in:focus-visible circle{stroke:var(--text-muted);stroke-width:2.5px;}
