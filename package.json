@@ -1,7 +1,7 @@
 {
   "name": "import-atlas",
   "version": "0.15.0",
-  "description": "Scan a JS/TS project's local import graph from one or more entry files and render it as an interactive, pannable dependency tree.",
+  "description": "Scan a JS/TS project's local import graph from one or more entry files and render it as an interactive dependency tree or graph.",
   "keywords": [
     "cli",
     "dependency-graph",
@@ -9,8 +9,11 @@
     "dependency-tree",
     "static-analysis",
     "typescript",
-    "ast",
-    "visualization"
+    "javascript",
+    "visualization",
+    "architecture",
+    "circular-dependencies",
+    "dead-code"
   ],
   "homepage": "https://github.com/Vladimir-Romanets/import-atlas#readme",
   "bugs": {

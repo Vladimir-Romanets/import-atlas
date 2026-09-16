@@ -40,10 +40,11 @@
       <ul class="edge-legend">
         <li><span class="edge-sample"></span>import</li>
         <li><span class="edge-sample deferred"></span>lazy / dynamic</li>
+        {{edgeLegendExtra}}
       </ul>
     </section>
     <section>
-      <h2>Highest fan-in</h2>
+      <h2>Highest fan-in <span class="info-icon" tabindex="0" title="How many times this file was imported within the scanned scope.">?</span></h2>
       <table class="stats" id="statsTable"></table>
     </section>
     <section id="warningsSection" hidden>
@@ -58,8 +59,7 @@
       <div class="d-hint" id="dHint"></div>
     </div>
     <p class="hint">
-      Click a node to expand/collapse. Drag to pan, scroll to zoom. A file
-      reached from several places opens independently in each of them.
+      {{hint}}
     </p>
   </aside>
   <main class="main">
@@ -67,12 +67,12 @@
       <button
         type="button"
         class="tab"
-        id="tabTree"
+        id="tabCanvas"
         role="tab"
         aria-selected="true"
-        aria-controls="panelTree"
+        aria-controls="panelCanvas"
       >
-        Tree
+        {{tabLabel}}
       </button>
       <button
         type="button"
@@ -87,14 +87,16 @@
     </div>
     <div
       class="panel canvas-wrap"
-      id="panelTree"
+      id="panelCanvas"
       role="tabpanel"
-      aria-labelledby="tabTree"
+      aria-labelledby="tabCanvas"
     >
-      <svg id="canvas" aria-label="Import dependency tree">
+      <svg id="canvas" aria-label="{{canvasLabel}}">
         <g id="viewport">
           <g id="edges"></g>
           <g id="nodes"></g>
+          <g id="edges-hover"></g>
+          <g id="nodes-hover"></g>
         </g>
       </svg>
       <div class="zoom-controls">

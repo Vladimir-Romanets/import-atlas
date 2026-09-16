@@ -152,7 +152,7 @@ const covers = (outer: WorldRect, inner: WorldRect): boolean =>
   outer.y1 >= inner.y1;
 
 /**
- * Draws the merged graph, and only the part of it that is on screen.
+ * Draws the graph, and only the part of it that is on screen.
  *
  * Virtualisation is not an optimisation here but the feature working at
  * all: a few thousand files is an ordinary project. Laying every visible
@@ -522,7 +522,7 @@ export function createGraphRenderer({
     g.appendChild(clip);
 
     // The file's own name leads here, unlike the tree, where a node is
-    // named after what one importer asked for. Merged, a node serves every
+    // named after what one importer asked for. Here, a node serves every
     // importer at once, and the file's name is the one they all agree on.
     const fileName = fileNameOf(node.relPath);
     const folder = node.label === "index" ? folderOf(node.relPath) : "";

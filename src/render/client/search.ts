@@ -1,6 +1,6 @@
 /**
  * All the search box reads off a node. The tree keys these by `renderId`
- * (one per occurrence), the merged graph by file id — either way the key is
+ * (one per occurrence), the graph by file id — either way the key is
  * what `jumpTo` gets back, so neither viewer needs its own copy.
  */
 export interface Searchable {

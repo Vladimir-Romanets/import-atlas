@@ -8,7 +8,7 @@ function nameList(paths: string[]): string {
 
 /**
  * The sidebar panel for a selected node. Where the tree's answers "what did
- * this importer ask for?", this answers what only a merged view can: who is
+ * this importer ask for?", this answers what only the graph view can: who is
  * on the other end of the lines arriving here.
  */
 export function showGraphDetail(node: LayoutNode, index: GraphIndex): void {
