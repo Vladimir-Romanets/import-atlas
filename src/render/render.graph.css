@@ -1,4 +1,4 @@
-  /* Graph viewer — loaded after render.tree.css, which it extends rather
+  /* Graph viewer — loaded after render.base.css, which it extends rather
      than replaces: nodes, layers, findings and the sidebar are the same
      furniture, so only what a graph has and a tree hasn't is defined here. */
   /* The edge legend is shared with the tree; only the cycle-closing sample

@@ -48,10 +48,13 @@ code:
   hint lives in `render.tree.hint.html` / `render.graph.hint.html`. Add a
   placeholder only where the two viewers genuinely can't share markup —
   everything else belongs in the skeleton itself.
-- `src/render/render.tree.css` — plain CSS for the tree written by `tree`.
-- `src/render/render.graph.css` — the graph viewer's, written by `graph`;
-  it extends `render.tree.css` rather than restating it (the build emits
-  the two concatenated).
+- `src/render/render.base.css` — plain CSS shared by both viewers: nearly
+  everything on screen, since the two draw the same furniture. The tree
+  loads this and nothing else.
+- `src/render/render.graph.css` — what the graph has and the tree hasn't;
+  it extends `render.base.css` rather than restating it (the build emits
+  the two concatenated). A rule belongs here only if the tree never draws
+  the thing it styles.
 - `src/render/render.tree.client.ts` and the modules it imports from
   `src/render/client/*.ts` — the tree viewer's logic (layout, pan/zoom,
   search, etc.), type-checked against `tsconfig.browser.json` (which adds

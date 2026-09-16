@@ -136,7 +136,7 @@ describe('viewer bodies built from the shared skeleton', () => {
 
 describe('inlined viewer sources', () => {
   const sources = [
-    path.join(here, '..', 'render', 'render.tree.css'),
+    path.join(here, '..', 'render', 'render.base.css'),
     path.join(here, '..', 'render', 'render.graph.css'),
     path.join(here, '..', 'render', 'render.html'),
     path.join(here, '..', 'render', 'render.tree.hint.html'),
