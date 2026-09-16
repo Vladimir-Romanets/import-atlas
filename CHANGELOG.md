@@ -1,3 +1,13 @@
+# [1.0.0](https://github.com/Vladimir-Romanets/import-atlas/compare/v0.15.0...v1.0.0) (2026-09-16)
+
+
+* refactor!: rename CLI commands graph→tree and merged→graph ([#30](https://github.com/Vladimir-Romanets/import-atlas/issues/30)) ([a137e96](https://github.com/Vladimir-Romanets/import-atlas/commit/a137e961b84349adf149e1ca02fa369aaee3208c))
+
+
+### BREAKING CHANGES
+
+* `import-atlas graph` now writes the graph, not the tree — the old invocation keeps working and silently produces a different report. `import-graph.html` likewise now holds the graph. The library's `renderGraphHtml` keeps its name but renders the graph and takes a `buildGraph` result; tree callers must move to `renderTreeHtml`. See docs/migrations/0.15-to-1.0.md.
+
 # [0.15.0](https://github.com/Vladimir-Romanets/import-atlas/compare/v0.14.0...v0.15.0) (2026-09-15)
 
 
