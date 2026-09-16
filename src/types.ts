@@ -179,12 +179,12 @@ export interface ReportMeta {
 }
 
 /** The JSON payload embedded into the generated HTML report for the tree viewer's client script. */
-export interface RenderData extends ReportMeta {
+export interface TreeRenderData extends ReportMeta {
   forest: TreeNode[];
 }
 
 /**
- * One file in the merged graph view.
+ * One file in the graph view.
  *
  * Where `TreeNode` is one *occurrence* — one per place that reaches the file
  * — this is one *file*, however many importers it has: the shared module is
@@ -260,7 +260,7 @@ export interface GraphEdge {
   isBackEdge: boolean;
 }
 
-/** The merged (DAG) view of a scan: one node per file, one edge per file pair. */
+/** The graph (DAG) view of a scan: one node per file, one edge per file pair. */
 export interface GraphData {
   nodes: GraphNode[];
   edges: GraphEdge[];
@@ -270,7 +270,7 @@ export interface GraphData {
   maxDepth: number;
 }
 
-/** The JSON payload embedded into the generated HTML report for the merged graph viewer's client script. */
+/** The JSON payload embedded into the generated HTML report for the graph viewer's client script. */
 export interface GraphRenderData extends ReportMeta {
   graph: GraphData;
 }

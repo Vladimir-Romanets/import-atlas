@@ -6,10 +6,10 @@ export { computeFindings, sortFindings } from './engine/findings';
 export { computeCircularImports, DEFAULT_MAX_CYCLE_LENGTH } from './engine/circularImports';
 export type { CircularImportOptions } from './engine/circularImports';
 export { computeDupeImports } from './engine/dupeImports';
-export { renderHtml } from './report/render';
-export type { RenderOptions } from './report/render';
-export { renderGraphHtml } from './report/renderGraph';
-export type { RenderGraphOptions } from './report/renderGraph';
+export { renderTreeHtml } from './report/render.tree';
+export type { TreeOptions } from './report/render.tree';
+export { renderGraphHtml } from './report/render.graph';
+export type { GraphOptions } from './report/render.graph';
 export type {
   Edge,
   ExportFacts,
@@ -20,8 +20,8 @@ export type {
   GraphEdge,
   GraphNode,
   GraphRenderData,
-  RenderData,
   ReportMeta,
   ScanResult,
   TreeNode,
+  TreeRenderData,
 } from './types';

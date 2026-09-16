@@ -1,4 +1,4 @@
-import type { RenderData } from "../types";
+import type { TreeRenderData } from "../types";
 import type { RenderNode } from "./client/types";
 import { byId } from "./client/dom";
 import { createColorScale } from "./client/colors";
@@ -14,10 +14,11 @@ import { createTreeRenderer } from "./client/svgTree";
 import { createNavigation, type Navigation } from "./client/navigation";
 import { createSearch } from "./client/search";
 import { renderFindings } from "./client/findings";
+import { createTabs } from "./client/tabs";
 
 declare global {
   interface Window {
-    __IMPORT_ATLAS_DATA__: RenderData;
+    __IMPORT_ATLAS_DATA__: TreeRenderData;
   }
 }
 
@@ -41,33 +42,7 @@ const nodesG = byId<SVGGElement>("nodes");
 
 const viewport = createViewport(svg, viewportG);
 
-const tabTree = byId<HTMLButtonElement>("tabTree");
-const tabFindings = byId<HTMLButtonElement>("tabFindings");
-const panelTree = byId("panelTree");
-const panelFindings = byId("panelFindings");
-
-function activateTab(tab: "tree" | "findings"): void {
-  const tree = tab === "tree";
-  tabTree.setAttribute("aria-selected", String(tree));
-  tabFindings.setAttribute("aria-selected", String(!tree));
-  panelTree.hidden = !tree;
-  panelFindings.hidden = tree;
-}
-
-tabTree.addEventListener("click", () => {
-  activateTab("tree");
-});
-tabFindings.addEventListener("click", () => {
-  activateTab("findings");
-});
-
-// Every viewport operation measures the SVG to know where to pan or zoom,
-// and a hidden panel measures 0×0, parking the tree at a nonsense
-// transform. The sidebar's tree controls stay clickable under the Findings
-// tab, so they switch back to the tree first rather than being disabled.
-function showTree(): void {
-  activateTab("tree");
-}
+const tabs = createTabs();
 
 let nav: Navigation;
 const treeRenderer = createTreeRenderer({
@@ -99,7 +74,7 @@ function renderTree(): void {
 renderToggleExpand();
 
 toggleExpandBtn.addEventListener("click", () => {
-  showTree();
+  tabs.showCanvas();
   if (collapsed.size === 0) {
     defaultCollapse();
   } else {
@@ -128,7 +103,7 @@ byId("zoomOut").addEventListener("click", () => {
 });
 
 byId("fitView").addEventListener("click", () => {
-  showTree();
+  tabs.showCanvas();
   viewport.fitView(treeRenderer.getVisibleNodes());
 });
 
@@ -139,7 +114,7 @@ createSearch({
   // The tree can afford to open on every keystroke: it unfolds only the
   // one match's ancestors, and the same chevrons fold them back.
   jumpTo: (id) => {
-    showTree();
+    tabs.showCanvas();
     nav.jumpTo(id);
   },
 });

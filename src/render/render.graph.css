@@ -1,8 +1,8 @@
-  /* Merged graph viewer — loaded after render.css, which it extends rather
+  /* Graph viewer — loaded after render.tree.css, which it extends rather
      than replaces: nodes, layers, findings and the sidebar are the same
      furniture, so only what a graph has and a tree hasn't is defined here. */
   /* The edge legend is shared with the tree; only the cycle-closing sample
-     is the merged view's own, a tree having no such edge. */
+     is the graph view's own, a tree having no such edge. */
   .edge-sample.back{border-top-style:dashed;border-top-color:var(--danger);}
 
   /* Zoomed far out, a node is a block of its layer's colour and nothing

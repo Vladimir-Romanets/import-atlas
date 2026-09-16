@@ -36,7 +36,7 @@ function reaches(request: string[] | '*', exposed: string[] | '*'): boolean {
  * whatever the selection reaches *through* a barrel.
  *
  * That last part answers by emphasis what the tree solves structurally. A
- * tree gives a barrel one expansion per set of names asked of it; a merged
+ * tree gives a barrel one expansion per set of names asked of it; the
  * graph draws it once for everyone, so selecting the importer lights up the
  * two re-exports it uses among the barrel's twenty, the barrel keeping its
  * full shape.

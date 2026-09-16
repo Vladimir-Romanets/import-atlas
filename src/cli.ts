@@ -6,8 +6,8 @@ import { execFile } from 'child_process';
 import { scan } from './engine/scan';
 import { buildForest } from './engine/buildForest';
 import { buildGraph } from './engine/buildGraph';
-import { renderHtml } from './report/render';
-import { renderGraphHtml } from './report/renderGraph';
+import { renderTreeHtml } from './report/render.tree';
+import { renderGraphHtml } from './report/render.graph';
 import { DEFAULT_MAX_CYCLE_LENGTH } from './engine/circularImports';
 
 // eslint-disable-next-line @typescript-eslint/no-var-requires
@@ -30,7 +30,9 @@ const program = new Command();
 
 program
   .name('import-atlas')
-  .description("Scan a JS/TS project's local import graph and render it as an interactive dependency tree.")
+  .description(
+    "Scan a JS/TS project's local import graph and render it as an interactive dependency tree or graph."
+  )
   .version(pkg.version);
 
 program
@@ -61,8 +63,8 @@ program
   });
 
 program
-  .command('graph', { isDefault: true })
-  .description('Scan entry file(s) and render an interactive HTML dependency graph')
+  .command('tree', { isDefault: true })
+  .description('Scan entry file(s) and render an interactive HTML dependency tree per entry')
   .argument('<entries...>', 'entry file(s), relative to --root')
   .option('-r, --root <dir>', 'project root (relative paths & tsconfig resolution)', process.cwd())
   .option('-c, --tsconfig <path>', 'explicit tsconfig.json path')
@@ -74,8 +76,8 @@ program
     (v) => parseInt(v, 10),
     DEFAULT_MAX_CYCLE_LENGTH
   )
-  .option('-o, --out <file>', 'output HTML file', 'import-graph.html')
-  .option('-t, --title <title>', 'page title', 'Import Graph')
+  .option('-o, --out <file>', 'output HTML file', 'import-tree.html')
+  .option('-t, --title <title>', 'page title', 'Import Tree')
   .option('--json <file>', 'also write the raw graph JSON to this file')
   .option('--open', 'open the generated HTML in the default browser')
   .action((entries: string[], opts) => {
@@ -88,7 +90,7 @@ program
       maxFiles: opts.maxFiles
     });
     const forest = buildForest(result);
-    const html = renderHtml(forest, result, {
+    const html = renderTreeHtml(forest, result, {
       title: opts.title,
       maxCycleLength: opts.maxCycleLength
     });
@@ -107,16 +109,16 @@ program
   });
 
 program
-  .command('merged')
+  .command('graph')
   .alias('dag')
   .description(
-    'Scan entry file(s) and render one merged graph: every file drawn once, with an edge from each importer'
+    'Scan entry file(s) and render one graph: every file drawn once, with an edge from each importer'
   )
   .argument('<entries...>', 'entry file(s), relative to --root')
   .option('-r, --root <dir>', 'project root (relative paths & tsconfig resolution)', process.cwd())
   .option('-c, --tsconfig <path>', 'explicit tsconfig.json path')
   .option('-e, --exclude <regex...>', 'skip files whose root-relative path matches this regex')
-  // Higher than the tree's cap: the merged view draws a file once however
+  // Higher than the tree's cap: the graph view draws a file once however
   // many places import it, so it stays legible where the tree would have
   // thousands of repeated boxes.
   .option('--max-files <n>', 'stop after scanning this many files', (v) => parseInt(v, 10), 10000)
@@ -126,8 +128,8 @@ program
     (v) => parseInt(v, 10),
     DEFAULT_MAX_CYCLE_LENGTH
   )
-  .option('-o, --out <file>', 'output HTML file', 'import-graph-merged.html')
-  .option('-t, --title <title>', 'page title', 'Import Graph (merged)')
+  .option('-o, --out <file>', 'output HTML file', 'import-graph.html')
+  .option('-t, --title <title>', 'page title', 'Import Graph')
   .option('--json <file>', 'also write the raw graph JSON to this file')
   .option('--open', 'open the generated HTML in the default browser')
   .action((entries: string[], opts) => {
@@ -161,14 +163,12 @@ program
 
 program
   .command('all')
-  .description(
-    'Scan entry file(s) once and render every report: the tree and the merged graph'
-  )
+  .description('Scan entry file(s) once and render every report: the tree and the graph')
   .argument('<entries...>', 'entry file(s), relative to --root')
   .option('-r, --root <dir>', 'project root (relative paths & tsconfig resolution)', process.cwd())
   .option('-c, --tsconfig <path>', 'explicit tsconfig.json path')
   .option('-e, --exclude <regex...>', 'skip files whose root-relative path matches this regex')
-  // The tree's cap, not the merged viewer's: one scan feeds every report,
+  // The tree's cap, not the graph viewer's: one scan feeds every report,
   // so the lowest cap has to hold — and the tree gives out first, repeating
   // a shared file once per place reaching it.
   .option('--max-files <n>', 'stop after scanning this many files', (v) => parseInt(v, 10), 4000)
@@ -178,9 +178,13 @@ program
     (v) => parseInt(v, 10),
     DEFAULT_MAX_CYCLE_LENGTH
   )
-  .option('--out-tree <file>', 'output HTML file for the tree', 'import-graph.html')
-  .option('--out-merged <file>', 'output HTML file for the merged graph', 'import-graph-merged.html')
-  .option('-t, --title <title>', 'page title; the merged report gets " (merged)" appended', 'Import Graph')
+  .option('--out-tree <file>', 'output HTML file for the tree', 'import-tree.html')
+  .option('--out-graph <file>', 'output HTML file for the graph', 'import-graph.html')
+  .option(
+    '-t, --title <title>',
+    'page title; each report appends its own kind — " (tree)" or " (graph)"',
+    'Import Atlas'
+  )
   .option('--json <file>', 'also write the raw graph JSON to this file')
   .option('--open', 'open every generated HTML file in the default browser')
   .action((entries: string[], opts) => {
@@ -193,15 +197,15 @@ program
       maxFiles: opts.maxFiles
     });
 
-    // Merged first, deliberately: it is the sturdier of the two — flat
+    // The graph first, deliberately: it is the sturdier of the two — flat
     // arrays of nodes and edges, not a tree nesting one level per
     // import-chain link — so writing it first leaves something to open if
     // the other throws. Sturdiest first, as reports are added.
     const graph = buildGraph(result);
     fs.writeFileSync(
-      opts.outMerged,
+      opts.outGraph,
       renderGraphHtml(graph, result, {
-        title: `${opts.title} (merged)`,
+        title: `${opts.title} (graph)`,
         maxCycleLength: opts.maxCycleLength
       })
     );
@@ -213,8 +217,8 @@ program
       const forest = buildForest(result);
       fs.writeFileSync(
         opts.outTree,
-        renderHtml(forest, result, {
-          title: opts.title,
+        renderTreeHtml(forest, result, {
+          title: `${opts.title} (tree)`,
           maxCycleLength: opts.maxCycleLength
         })
       );
@@ -223,11 +227,11 @@ program
       // is more use than a stack trace over a file that exists.
       const message = e instanceof Error ? e.message : String(e);
       console.error(summary);
-      console.error(`Wrote ${opts.outMerged}`);
+      console.error(`Wrote ${opts.outGraph}`);
       console.error(`⚠ The tree report failed: ${message}`);
       if (e instanceof RangeError) {
         console.error(
-          '  A long import chain overruns the stack while the tree is built. The merged report above covers the same scan.'
+          '  A long import chain overruns the stack while the tree is built. The graph report above covers the same scan.'
         );
       }
       process.exitCode = 1;
@@ -235,7 +239,7 @@ program
     }
 
     console.error(summary);
-    console.error(`Wrote ${opts.outTree} and ${opts.outMerged}`);
+    console.error(`Wrote ${opts.outTree} and ${opts.outGraph}`);
     for (const w of result.warnings) console.error(`⚠ ${w}`);
 
     if (opts.json) {
@@ -244,7 +248,7 @@ program
     }
     if (opts.open) {
       openInBrowser(opts.outTree);
-      openInBrowser(opts.outMerged);
+      openInBrowser(opts.outGraph);
     }
   });
 

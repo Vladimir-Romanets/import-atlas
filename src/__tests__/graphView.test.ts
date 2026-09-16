@@ -56,7 +56,7 @@ function makeScan(entries: string[], ids: string[], edges: Edge[]): ScanResult {
 
 /**
  * Two features in different branches, both reaching one barrel — the shape
- * the merged view exists for. `a.ts` asks the barrel for `Alpha`, `b.ts`
+ * the graph view exists for. `a.ts` asks the barrel for `Alpha`, `b.ts`
  * for `Beta`, and the barrel forwards each from its own file.
  */
 function sharedBarrelScan(): ScanResult {

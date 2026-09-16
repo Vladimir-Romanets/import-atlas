@@ -80,7 +80,7 @@ function assignColumns(
 }
 
 /**
- * Places the visible part of the merged graph: columns by distance from
+ * Places the visible part of the graph: columns by distance from
  * whatever is furthest upstream, rows chosen to keep edges from crossing.
  *
  * The vertical axis is most of the work — barycentre sweeps to order rows,

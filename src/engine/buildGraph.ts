@@ -4,7 +4,7 @@ import { summarizeExternals } from "../utils/summarize";
 import type { GraphData, GraphEdge, GraphNode, ScanResult } from "../types";
 
 /**
- * Turns the scanned import graph into the merged view: one node per file,
+ * Turns the scanned import graph into the graph view: one node per file,
  * one edge per pair of files.
  *
  * The counterpart to `buildForest`, making the opposite trade. The forest

@@ -9,6 +9,7 @@ import { buildGraphIndex } from "./client/graph/types";
 import { createVisibility } from "./client/graph/visibility";
 import { createSearch } from "./client/search";
 import { renderSidebar } from "./client/sidebar";
+import { createTabs } from "./client/tabs";
 import { createViewport } from "./client/viewport";
 
 // Read rather than declared as a global: the tree viewer declares the same
@@ -34,32 +35,7 @@ const nodesHoverG = byId<SVGGElement>("nodes-hover");
 const viewport = createViewport(svg, viewportG);
 const visibility = createVisibility(graph, index);
 
-const tabGraph = byId<HTMLButtonElement>("tabGraph");
-const tabFindings = byId<HTMLButtonElement>("tabFindings");
-const panelGraph = byId("panelGraph");
-const panelFindings = byId("panelFindings");
-
-function activateTab(tab: "graph" | "findings"): void {
-  const isGraph = tab === "graph";
-  tabGraph.setAttribute("aria-selected", String(isGraph));
-  tabFindings.setAttribute("aria-selected", String(!isGraph));
-  panelGraph.hidden = !isGraph;
-  panelFindings.hidden = isGraph;
-}
-
-tabGraph.addEventListener("click", () => {
-  activateTab("graph");
-});
-tabFindings.addEventListener("click", () => {
-  activateTab("findings");
-});
-
-// Every viewport operation measures the SVG to know where to pan or zoom,
-// and a hidden panel measures 0×0 — so the sidebar's canvas controls switch
-// back to the graph before doing anything.
-function showGraph(): void {
-  activateTab("graph");
-}
+const tabs = createTabs();
 
 const toggleExpandBtn = byId<HTMLButtonElement>("toggleExpand");
 const toggleExpandText = byId("toggleExpandText");
@@ -91,7 +67,7 @@ const renderer = createGraphRenderer({
 });
 
 toggleExpandBtn.addEventListener("click", () => {
-  showGraph();
+  tabs.showCanvas();
   if (visibility.isFullyExpanded()) visibility.collapseAll();
   else visibility.expandAll();
   renderer.refresh();
@@ -105,12 +81,12 @@ byId("zoomOut").addEventListener("click", () => {
   viewport.zoomStep(1 / 1.2);
 });
 byId("fitView").addEventListener("click", () => {
-  showGraph();
+  tabs.showCanvas();
   viewport.fitView(renderer.laidOut());
 });
 
 function jumpTo(id: string, committed: boolean): void {
-  showGraph();
+  tabs.showCanvas();
   if (committed) {
     // Opening the way in adds nodes, so the layout has to be redone before
     // there is a position to centre on.

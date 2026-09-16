@@ -10,7 +10,7 @@
     "forceConsistentCasingInFileNames": true
   },
   "include": [
-    "src/render/render.client.ts",
+    "src/render/render.tree.client.ts",
     "src/render/render.graph.client.ts",
     "src/render/client/**/*.ts"
   ]
