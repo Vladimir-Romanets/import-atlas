@@ -2,7 +2,7 @@ import type { TreeRenderData } from "../types";
 import type { RenderNode } from "./client/types";
 import { byId } from "./client/dom";
 import { createColorScale } from "./client/colors";
-import { renderSidebar } from "./client/sidebar";
+import { highlightLayer, renderSidebar } from "./client/sidebar";
 import {
   buildIndex,
   countDescendants,
@@ -52,6 +52,7 @@ const treeRenderer = createTreeRenderer({
   colorOf,
   collapsed,
   onActivate: (node) => nav.onNodeActivate(node),
+  onLayerHover: highlightLayer,
 });
 
 const toggleExpandBtn = byId<HTMLButtonElement>("toggleExpand");
@@ -92,7 +93,7 @@ nav = createNavigation({
   svg,
   nodesG,
   viewport,
-  showDetail,
+  showDetail: (node) => showDetail(node, colorOf),
 });
 
 byId("zoomIn").addEventListener("click", () => {

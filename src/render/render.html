@@ -37,14 +37,22 @@
     </section>
     <section class="legend">
       <h2>Edges</h2>
-      <ul class="edge-legend">
+      <ul class="legendList">
         <li><span class="edge-sample"></span>import</li>
         <li><span class="edge-sample deferred"></span>lazy / dynamic</li>
         {{edgeLegendExtra}}
       </ul>
     </section>
     <section>
-      <h2>Highest fan-in <span class="info-icon" tabindex="0" title="How many times this file was imported within the scanned scope.">?</span></h2>
+      <h2>
+        Highest fan-in
+        <span
+          class="info-icon"
+          tabindex="0"
+          title="How many times this file was imported within the scanned scope."
+          >?</span
+        >
+      </h2>
       <table class="stats" id="statsTable"></table>
     </section>
     <section id="warningsSection" hidden>
@@ -52,15 +60,16 @@
       <div class="warnings" id="warningsList"></div>
     </section>
     <div id="detail" hidden>
-      <div class="d-label" id="dLabel"></div>
+      <div class="d-head">
+        <span class="d-swatch" id="dSwatch"></span>
+        <div class="d-label" id="dLabel"></div>
+      </div>
       <div class="d-path" id="dPath"></div>
       <div class="d-note" id="dNote"></div>
       <div class="d-warn" id="dWarn"></div>
       <div class="d-hint" id="dHint"></div>
     </div>
-    <p class="hint">
-      {{hint}}
-    </p>
+    <p class="hint">{{hint}}</p>
   </aside>
   <main class="main">
     <div class="tabs" role="tablist" aria-label="View">

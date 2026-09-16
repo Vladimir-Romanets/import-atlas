@@ -47,6 +47,8 @@ export interface GraphRendererOptions {
    * chevrons and badges drawn here, which the page has no way to observe.
    */
   onVisibilityChange: () => void;
+  /** The hovered (or focused) node's layer, or null once it's neither. Drives the sidebar legend. */
+  onLayerHover: (layer: string | null) => void;
 }
 
 /**
@@ -171,6 +173,7 @@ export function createGraphRenderer({
   viewport,
   onSelect,
   onVisibilityChange,
+  onLayerHover,
 }: GraphRendererOptions): GraphRenderer {
   let layout: GraphLayout = { nodes: [], edges: [] };
   let layoutById: Record<string, LayoutNode> = {};
@@ -266,12 +269,16 @@ export function createGraphRenderer({
       return `M ${x} ${from.y - 7} C ${x + 36} ${from.y - 24}, ${x + 36} ${from.y + 24}, ${x} ${from.y + 7}`;
     }
     if (link.edge.isBackEdge || to.x < from.x) {
-      // Closes a cycle, so it is the one edge that runs right to left: out
-      // of the source's left side, over the top, into the target's right.
-      const sx = from.x;
-      const tx = to.x + NODE_W;
-      const lift = 30 + Math.abs(from.y - to.y) * 0.12;
-      return `M ${sx} ${from.y} C ${sx - 70} ${from.y - lift}, ${tx + 70} ${to.y - lift}, ${tx} ${to.y}`;
+      // Closes a cycle, so it runs right to left. Still leaves the importer
+      // by its right side and lands on the target's left, the same sockets
+      // a forward edge uses — so a side never doubles as both "imports me"
+      // and "I import this, cyclically." The wider span this forces (both
+      // ends now on the far side of their box) needs a taller loop to clear
+      // the columns in between.
+      const sx = from.x + NODE_W;
+      const tx = to.x;
+      const lift = 30 + Math.abs(from.y - to.y) * 0.12 + (sx - tx) * 0.1;
+      return `M ${sx} ${from.y} C ${sx + 70} ${from.y - lift}, ${tx - 70} ${to.y - lift}, ${tx} ${to.y}`;
     }
     const px = from.x + NODE_W;
     const cx = to.x;
@@ -356,6 +363,7 @@ export function createGraphRenderer({
     if (hoveredId === null) return;
     const id = hoveredId;
     hoveredId = null;
+    onLayerHover(null);
     nodeElementById.get(id)?.classList.remove("hovered");
     keepingFocus(() => {
       for (let i = raisedEdges.length - 1; i >= 0; i -= 1) {
@@ -428,6 +436,7 @@ export function createGraphRenderer({
     lowerAll();
     if (dimmed) return;
     hoveredId = node.id;
+    onLayerHover(node.layer);
     // Stands in for `:hover`, which the pointer stops satisfying once it rests
     // on a raised badge.
     nodeElementById.get(node.id)?.classList.add("hovered");
@@ -799,6 +808,7 @@ export function createGraphRenderer({
     edgesByNode = new Map();
     nodeElementById = new Map();
     badgesByNode = new Map();
+    if (hoveredId !== null) onLayerHover(null);
     hoveredId = null;
     raisedNodeIds = new Set();
     raisedEdges = [];

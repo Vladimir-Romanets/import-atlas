@@ -8,7 +8,7 @@ import { createGraphRenderer } from "./client/graph/graphRenderer";
 import { buildGraphIndex } from "./client/graph/types";
 import { createVisibility } from "./client/graph/visibility";
 import { createSearch } from "./client/search";
-import { renderSidebar } from "./client/sidebar";
+import { highlightLayer, renderSidebar } from "./client/sidebar";
 import { createTabs } from "./client/tabs";
 import { createViewport } from "./client/viewport";
 
@@ -61,9 +61,10 @@ const renderer = createGraphRenderer({
   colorOf,
   viewport,
   onSelect: (node) => {
-    if (node !== null) showGraphDetail(node, index);
+    if (node !== null) showGraphDetail(node, index, colorOf);
   },
   onVisibilityChange: renderToggleExpand,
+  onLayerHover: highlightLayer,
 });
 
 toggleExpandBtn.addEventListener("click", () => {
@@ -112,7 +113,7 @@ function jumpTo(id: string, committed: boolean): void {
   viewport.applyTransform();
 
   renderer.select(id);
-  showGraphDetail(node, index);
+  showGraphDetail(node, index, colorOf);
 
   // The ring marks an arrival. It lasts far longer than a keystroke, so
   // only a committed jump earns one.

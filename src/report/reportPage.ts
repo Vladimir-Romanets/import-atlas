@@ -1,3 +1,4 @@
+import path from "node:path";
 import { computeCircularImports } from "../engine/circularImports";
 import { computeDupeImports } from "../engine/dupeImports";
 import { computeFindings, sortFindings } from "../engine/findings";
@@ -37,7 +38,7 @@ export function buildReportMeta(
 
   return {
     title: options.title,
-    root: scanResult.root,
+    root: path.basename(scanResult.root),
     entries: scanResult.entries.map(
       (id) => scanResult.nodes[id]?.relPath || id,
     ),
