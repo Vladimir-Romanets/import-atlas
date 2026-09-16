@@ -53,7 +53,7 @@ function renderGroup(group: Group): { section: HTMLElement; rows: { el: HTMLElem
   const heading = document.createElement('h3');
   heading.textContent = group.label;
   const count = document.createElement('span');
-  count.className = 'f-count';
+  count.className = 'count';
   count.textContent = String(group.items.length);
   heading.appendChild(count);
 

@@ -1,4 +1,7 @@
-
+  /* Shared by both viewers — the tree loads this alone, the graph loads it
+     with render.graph.css appended. Nearly everything on screen is here:
+     the two draw the same sidebar, tabs, nodes, edges and Findings panel,
+     so a change made here is a change to both reports. */
   :root{
     --bg:#F4F5F7; --surface:#FFFFFF; --surface-2:#EBEDF1;
     --text:#171A21; --text-muted:#5B6270;
@@ -18,6 +21,11 @@
   *{box-sizing:border-box;}
   html,body{margin:0;height:100%;}
   body{background:var(--bg);color:var(--text);font-family:var(--font-sans);overflow:hidden;}
+  #search:focus,
+  #findingsFilter:focus,
+  .info-icon:focus-visible,
+  .f-help:focus-visible,
+  button.switch:focus-visible .switch-track{outline:2px solid var(--text-muted);outline-offset:1px;}
   .app{display:flex;height:100vh;}
   .sidebar{
     width:310px;flex:0 0 310px;background:var(--surface);border-right:1px solid var(--border);
@@ -28,7 +36,6 @@
   .sidebar section:not([hidden]){display:flex;flex-direction:column;gap:8px;}
   .sidebar h2{font-size:10.5px;text-transform:uppercase;letter-spacing:0.07em;color:var(--text-muted);font-weight:600;margin:0;}
   #search{width:100%;font-family:var(--font-mono);font-size:12px;padding:8px 10px;border:1px solid var(--border);border-radius:5px;background:var(--surface-2);color:var(--text);}
-  #search:focus{outline:2px solid var(--text-muted);outline-offset:1px;}
   .search-hint{font-size:10.5px;color:var(--text-muted);min-height:13px;}
   button.ctl{font-family:var(--font-sans);font-size:11.5px;font-weight:500;padding:6px 10px;border-radius:5px;border:1px solid var(--border);background:var(--surface-2);color:var(--text);cursor:pointer;}
   button.ctl:hover{border-color:var(--border-strong);}
@@ -38,7 +45,6 @@
   .switch-text{flex:1;text-align:center;white-space:nowrap;font-size:10px;font-weight:600;letter-spacing:.03em;text-transform:uppercase;color:var(--text-muted);user-select:none;}
   button.switch[aria-checked="true"] .switch-track{flex-direction:row-reverse;background:var(--highlight);border-color:var(--highlight);}
   button.switch[aria-checked="true"] .switch-text{color:var(--surface);}
-  button.switch:focus-visible .switch-track{outline:2px solid var(--text-muted);outline-offset:1px;}
   .legend ul{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:6px;max-height:190px;overflow-y:auto;}
   .legend li{display:flex;align-items:center;gap:8px;font-size:12px;font-family:var(--font-mono);}
   .swatch{width:14px;height:14px;border-radius:4px;flex:0 0 auto;}
@@ -50,7 +56,6 @@
   table.stats tr:last-child td{border-bottom:none;}
   .info-icon{display:inline-flex;align-items:center;justify-content:center;width:13px;height:13px;border-radius:50%;border:1px solid var(--border-strong);font-family:var(--font-sans);font-size:9px;font-weight:700;line-height:1;letter-spacing:normal;text-transform:none;color:var(--text-muted);cursor:help;vertical-align:middle;}
   .info-icon:hover,.info-icon:focus-visible{color:var(--text);border-color:var(--text-muted);}
-  .info-icon:focus-visible{outline:2px solid var(--text-muted);outline-offset:1px;}
   .warnings{display:flex;flex-direction:column;gap:4px;font-size:11px;color:var(--danger);}
   #detail{border:1px solid var(--border);border-radius:6px;background:var(--surface-2);padding:10px 12px;font-size:12px;display:flex;flex-direction:column;gap:4px;}
   #detail .d-label{font-weight:600;font-size:13px;}
@@ -66,23 +71,20 @@
   .tab:hover{color:var(--text);}
   .tab[aria-selected="true"]{color:var(--text);border-bottom-color:var(--highlight);}
   .tab:focus-visible{outline:2px solid var(--text-muted);outline-offset:-2px;}
-  .tab-count{font-family:var(--font-mono);font-size:10px;font-weight:500;padding:1px 5px;border-radius:8px;background:var(--surface-2);border:1px solid var(--border);color:var(--text-muted);}
+  .count{font-family:var(--font-mono);font-size:10px;font-weight:500;padding:1px 5px;border-radius:8px;background:var(--surface-2);border:1px solid var(--border);color:var(--text-muted);text-transform:none;letter-spacing:0;}
   .panel{flex:1 1 auto;min-height:0;position:relative;}
   .panel[hidden]{display:none;}
   .canvas-wrap{overflow:hidden;background:radial-gradient(var(--border) 1px, transparent 1px) 0 0/22px 22px, var(--bg);}
   .findings{overflow-y:auto;padding:18px 20px 28px;display:flex;flex-direction:column;gap:10px;}
   .f-summary{margin:0;font-size:13px;color:var(--text);}
   .f-caveat{margin:0;font-size:11.5px;line-height:1.5;color:var(--danger);max-width:80ch;}
-  #findingsFilter{width:100%;max-width:420px;font-family:var(--font-mono);font-size:12px;padding:7px 10px;border:1px solid var(--border);border-radius:5px;background:var(--surface);color:var(--text);}
-  #findingsFilter:focus{outline:2px solid var(--text-muted);outline-offset:1px;}
+  #findingsFilter{width:100%;max-width:420px;font-family:var(--font-mono);font-size:12px;padding:8px 10px;border:1px solid var(--border);border-radius:5px;background:var(--surface);color:var(--text);}
   .f-empty{margin:0;font-size:12px;color:var(--text-muted);}
   #findingsGroups{display:flex;flex-direction:column;gap:20px;}
   .f-group[hidden]{display:none;}
   .f-group h3{display:flex;align-items:center;gap:8px;margin:0 0 3px;font-size:11px;text-transform:uppercase;letter-spacing:0.07em;color:var(--text-muted);font-weight:600;}
-  .f-count{font-family:var(--font-mono);font-size:10px;padding:1px 6px;border-radius:8px;background:var(--surface-2);border:1px solid var(--border);text-transform:none;letter-spacing:0;}
   .f-help{-webkit-appearance:none;appearance:none;width:18px;height:18px;padding:0;border-radius:50%;border:1px solid var(--border-strong);background:var(--surface);color:var(--text-muted);font-family:var(--font-sans);font-size:10px;line-height:1;text-transform:none;letter-spacing:0;cursor:pointer;display:inline-flex;align-items:center;justify-content:center;}
   .f-help:hover{color:var(--text);border-color:var(--text-muted);}
-  .f-help:focus-visible{outline:2px solid var(--text-muted);outline-offset:1px;}
   .f-advice{margin:0 0 8px;font-size:12px;line-height:1.5;color:var(--text-muted);max-width:78ch;}
   table.f-table{width:100%;border-collapse:collapse;font-size:12px;background:var(--surface);border:1px solid var(--border);border-radius:6px;}
   table.f-table td{padding:5px 10px;border-bottom:1px solid var(--border);vertical-align:baseline;}
@@ -110,6 +112,9 @@
   .chev-node circle{fill:var(--surface);stroke:var(--border-strong);stroke-width:1px}
   .count-badge rect{fill:var(--surface-2);stroke:var(--border);stroke-width:0.5px}
   .count-badge text{font-family:var(--font-mono);font-size:9px;fill:var(--text-muted);}
+  /* The only rules here the graph never uses: it draws no per-node glyphs.
+     Kept in the base anyway — two inert selectors cost less than a third
+     stylesheet to hold them. */
   .warn-glyph{font-size:10.5px;fill:var(--danger);}
   .hint-glyph{font-size:10.5px;}
   .edge{fill:none;stroke-width:1;opacity:0.55;stroke:var(--dot-l);}

@@ -134,12 +134,12 @@ async function main() {
   const treeScript = toTemplateLiteral(await bundleClient('render.tree.client.ts'));
   const graphScript = toTemplateLiteral(await bundleClient('render.graph.client.ts'));
 
-  const treeCss = toTemplateLiteral(readAsset('render.tree.css'));
+  const treeCss = toTemplateLiteral(readAsset('render.base.css'));
   const treeHtml = toTemplateLiteral(buildBody('tree'));
-  // The graph viewer's stylesheet extends the shared one rather than
+  // The graph viewer's stylesheet extends the shared base rather than
   // restating it, so it is emitted appended.
   const graphCss = toTemplateLiteral(
-    `${readAsset('render.tree.css')}\n${readAsset('render.graph.css')}`
+    `${readAsset('render.base.css')}\n${readAsset('render.graph.css')}`
   );
   const graphHtml = toTemplateLiteral(buildBody('graph'));
 
