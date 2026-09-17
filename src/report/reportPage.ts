@@ -2,6 +2,8 @@ import path from "node:path";
 import { computeCircularImports } from "../engine/circularImports";
 import { computeDupeImports } from "../engine/dupeImports";
 import { computeFindings, sortFindings } from "../engine/findings";
+import { computeLayerViolations } from "../engine/layerViolations";
+import type { LayerRules } from "../engine/layerRules";
 import { stringifyDeep } from "../utils/stringifyDeep";
 import type { ReportMeta, ScanResult } from "../types";
 
@@ -9,6 +11,8 @@ export interface ReportOptions {
   title: string;
   /** Longest circular-import loop reported as its own row. See `DEFAULT_MAX_CYCLE_LENGTH`. */
   maxCycleLength?: number;
+  /** Enables the layer-violation check when given; omitted entirely, findings are unaffected. */
+  rules?: LayerRules;
 }
 
 /**
@@ -53,6 +57,7 @@ export function buildReportMeta(
         maxCycleLength: options.maxCycleLength,
       }),
       ...computeDupeImports(scanResult),
+      ...(options.rules ? computeLayerViolations(scanResult, options.rules) : []),
     ]),
     generatedAt: new Date().toISOString(),
   };

@@ -24,13 +24,14 @@ const html = renderGraphHtml(graph, result, { title: "My app" });
 
 `buildGraph()` is worth having on its own: it collapses the repeated statements between a pair of files into one edge, counts how many files import each file, works out how far each sits from an entry point, and marks the edges that close cycles — all of it plain data, and none of it needing the viewer.
 
-The Findings tab is three separate detectors over one `scan()` result. Each returns a `Finding[]` and each works alone:
+The Findings tab is four separate detectors over one `scan()` result. Each returns a `Finding[]` and each works alone:
 
 ```ts
 import {
   computeFindings,
   computeCircularImports,
   computeDupeImports,
+  computeLayerViolations,
   sortFindings,
 } from "import-atlas";
 
@@ -40,7 +41,18 @@ const findings = sortFindings([
   ...computeCircularImports(result), // import cycles, one row per loop
   // takes { maxCycleLength } — default 4
   ...computeDupeImports(result), // one module imported by several statements
+  ...computeLayerViolations(result, rules), // imports crossing a disallowed layer boundary
 ]);
 ```
 
 `sortFindings()` is what puts the merged list in most-trustworthy-first order; inside one confidence level each detector keeps its own row order. Drop it if you only want one detector, or want to order the rows yourself.
+
+`computeLayerViolations()` needs a `LayerRules` object — `Record<string, '*' | string[]>`, mapping each layer name to what it may import from (`'*'` for anywhere, an array for an explicit allowlist, or omit the key / use `[]` to forbid all cross-layer imports). `layersOf(result)` returns the real layer names a given scan produced, and `loadLayerRules(path)`/`validateLayerRules(result, rules)` read a rules file off disk and check it still matches the scan (an unknown layer named anywhere in the file — a key or an allowlist entry — or a real layer missing from it, comes back as a warning string rather than failing silently). `discoverLayers(root)` is the other way to get layer names — read straight off the directory tree rather than from a scan result, which is what `import-atlas init-rules` uses so it needs no entry files. It mirrors the two places `layerOf` takes a layer from: every top-level directory under `root` plus the children of `root/src`, skipping tooling directories by name and any directory holding no parseable source file at all (a `docs/`, a `public/`), since no scanned file could ever carry that layer:
+
+```ts
+import { loadLayerRules, validateLayerRules, computeLayerViolations } from "import-atlas";
+
+const rules = loadLayerRules("import-atlas.rules.json");
+for (const warning of validateLayerRules(result, rules)) console.warn(warning);
+const violations = computeLayerViolations(result, rules);
+```

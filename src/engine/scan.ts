@@ -21,13 +21,19 @@ function layerOf(relPath: string): string {
   return parts.length > 1 ? parts[0] : '(root)';
 }
 
+/** Every distinct `layer` among a scan's files — the real, current set a layer-rules file must name. */
+export function layersOf(scanResult: ScanResult): string[] {
+  return [...new Set(Object.values(scanResult.nodes).map((n) => n.layer))];
+}
+
 function labelOf(absPath: string): string {
   return path.basename(absPath).replace(/\.(tsx|ts|jsx|js|mjs|cjs)$/, '');
 }
 
 const PARSEABLE_EXTENSIONS = new Set(['.ts', '.tsx', '.mts', '.cts', '.js', '.jsx', '.mjs', '.cjs']);
 
-function isParseable(absPath: string): boolean {
+/** Whether the scanner can read this file at all — the extension set `resolveModule` also resolves against. */
+export function isParseable(absPath: string): boolean {
   return PARSEABLE_EXTENSIONS.has(path.extname(absPath));
 }
 

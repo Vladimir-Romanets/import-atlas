@@ -12,7 +12,7 @@
 
 </div>
 
-Make sense of a codebase you didn't write, check what a change will actually touch before you make it, or walk a new teammate through how a project fits together — **import-atlas** helps with all of that by turning a project's own `import` statements into a report you can click through. It visualizes your application's architecture as it actually is, not as a diagram someone drew once and never updated. Along the way it also surfaces problems a skim of the code misses: exports nothing uses, import cycles, and modules pulled in more than once.
+Make sense of a codebase you didn't write, check what a change will actually touch before you make it, or walk a new teammate through how a project fits together — **import-atlas** helps with all of that by turning a project's own `import` statements into a report you can click through. It visualizes your application's architecture as it actually is, not as a diagram someone drew once and never updated. Along the way it also surfaces problems a skim of the code misses: exports nothing uses, import cycles, modules pulled in more than once, and — given a layer-rules file — imports that cross an architecture boundary the team didn't mean to allow.
 
 ## 🚀 Quickstart
 
@@ -24,7 +24,7 @@ That's the whole tool for the common case: point it at an entry file, get an int
 
 Using a file-system router (Next.js, Nuxt, SvelteKit, Remix)? Pointing the tool at a single layout file only shows what that file imports, not your pages — pass every route file as its own entry instead. See [docs/file-system-routers.md](docs/file-system-routers.md).
 
-Prefer calling it from code instead of the CLI — `scan()`, `buildForest()`/`buildGraph()`, the HTML renderers, or the three Findings detectors on their own? See [docs/library-usage.md](docs/library-usage.md).
+Prefer calling it from code instead of the CLI — `scan()`, `buildForest()`/`buildGraph()`, the HTML renderers, or the four Findings detectors on their own? See [docs/library-usage.md](docs/library-usage.md).
 
 ## 🔍 What it does
 
@@ -40,6 +40,7 @@ Scan the local import graph of a JavaScript or TypeScript project, starting from
 - Finds import cycles. The tree marks one with ⚠ instead of expanding it forever, and the Findings tab lists them loop by loop, shortest first.
 - Reads each file's exports as well, and reports what the graph can prove about the code: exports nothing imports, import cycles, and modules pulled in by more than one statement from the same file.
 - Colours nodes by "layer" — the first folder under `src/`, or under the project root. A `shared / features / widgets / app` layout reads as colour groups with no setup.
+- Checks imports against a layer-rules file — `import-atlas.rules.json` in the project root if it exists, generate a starting point with `import-atlas init-rules` — and flags one crossing a layer boundary the file isn't allowed to reach into.
 
 ## 🗺️ The interactive viewer
 
@@ -49,7 +50,7 @@ Which one depends on the command. `tree` draws a **tree** per entry file, follow
 
 - **[Tree](docs/interactive-viewer.md#tree)** — one collapsible tree per entry file; a file used in several places expands independently wherever you open it, so following a shared file down two pages shows each page's own path.
 - **[Graph](docs/interactive-viewer.md#graph)** — the same scan as a single graph, every file drawn once with an edge from each importer, so a widely-shared file's fan-in is a shape you see rather than boxes you count.
-- **[Findings](docs/interactive-viewer.md#findings)** — everything the scan can prove about the code: unused exports, import cycles, and duplicate imports, grouped by how sure the graph can be.
+- **[Findings](docs/interactive-viewer.md#findings)** — everything the scan can prove about the code: unused exports, import cycles, duplicate imports, and — given a layer-rules file — layer boundary violations, grouped by how sure the graph can be.
 
 ## 🔄 Migration guides
 
@@ -69,4 +70,4 @@ See [CONTRIBUTING.md](CONTRIBUTING.md) for how to build the tool from source and
 - One HTML file per run. No watch or incremental mode yet.
 - In the graph view, a node's column is read from what is on screen, so opening or closing things moves nodes sideways. Position is worth comparing within one picture, not between two.
 - The graph view will draw whatever you open, including a node with three hundred importers. Nothing caps that — a fan of three hundred lines is a true answer to "who uses this", but it is not a readable one.
-- Framework routing is never drawn as an edge — it is a file-name convention, not an import. See the section above for how to get full coverage anyway.
+- Framework routing is never drawn as an edge — it is a file-name convention, not an import. See [docs/file-system-routers.md](docs/file-system-routers.md) for how to get full coverage anyway.

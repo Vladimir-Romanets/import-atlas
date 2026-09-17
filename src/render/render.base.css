@@ -94,6 +94,7 @@
   table.f-table tr:last-child td{border-bottom:none;}
   table.f-table td.f-name{font-family:var(--font-mono);font-weight:500;white-space:nowrap;width:1%;}
   table.f-table td.f-path{font-family:var(--font-mono);font-size:11px;color:var(--text-muted);word-break:break-all;}
+  table.f-table td.f-reason{font-size:11.5px;color:var(--text-muted);}
   svg#canvas{width:100%;height:100%;display:block;cursor:grab;}
   svg#canvas.dragging{cursor:grabbing;}
   .zoom-controls{position:absolute;right:16px;bottom:16px;display:flex;flex-direction:column;gap:6px;z-index:2;}
