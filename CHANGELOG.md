@@ -1,3 +1,10 @@
+# [1.1.0](https://github.com/Vladimir-Romanets/import-atlas/compare/v1.0.0...v1.1.0) (2026-09-17)
+
+
+### Features
+
+* highlight a node's layer in the sidebar legend on hover ([#32](https://github.com/Vladimir-Romanets/import-atlas/issues/32)) ([3ab2ccd](https://github.com/Vladimir-Romanets/import-atlas/commit/3ab2ccdf515e6747a599b737398c74e23da2a02b))
+
 # [1.0.0](https://github.com/Vladimir-Romanets/import-atlas/compare/v0.15.0...v1.0.0) (2026-09-16)
 
 
