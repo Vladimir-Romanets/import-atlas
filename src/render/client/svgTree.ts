@@ -14,6 +14,8 @@ export interface TreeRendererOptions {
   colorOf: (layer: string) => ColorPair;
   collapsed: Set<string>;
   onActivate: (node: RenderNode) => void;
+  /** The hovered (or focused) node's layer, or null once it's neither. Drives the sidebar legend. */
+  onLayerHover: (layer: string | null) => void;
 }
 
 export function createTreeRenderer({
@@ -23,6 +25,7 @@ export function createTreeRenderer({
   colorOf,
   collapsed,
   onActivate,
+  onLayerHover,
 }: TreeRendererOptions): TreeRenderer {
   let visibleNodes: RenderNode[] = [];
   let visibleEdges: [RenderNode, RenderNode][] = [];
@@ -219,6 +222,12 @@ export function createTreeRenderer({
         onActivate(node);
       }
     });
+    const layerEnter = (): void => onLayerHover(node.layer);
+    const layerLeave = (): void => onLayerHover(null);
+    g.addEventListener("pointerenter", layerEnter);
+    g.addEventListener("pointerleave", layerLeave);
+    g.addEventListener("focusin", layerEnter);
+    g.addEventListener("focusout", layerLeave);
 
     nodesG.appendChild(g);
   };
@@ -242,6 +251,10 @@ export function createTreeRenderer({
 
     edgesG.innerHTML = "";
     nodesG.innerHTML = "";
+    // Wiped with the DOM below, since a destroyed node fires no pointerleave
+    // of its own. A motionless pointer's own re-entry (Chromium, Firefox and
+    // WebKit all fire it) restores this right after, if it's still due.
+    onLayerHover(null);
 
     visibleEdges.forEach(renderEdge);
     visibleNodes.forEach((node, i) => renderNode(node, i));

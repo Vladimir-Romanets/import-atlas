@@ -1,47 +1,65 @@
-import type { ReportMeta } from '../../types';
-import type { ColorPair } from './types';
-import { byId } from './dom';
+import type { ReportMeta } from "../../types";
+import type { ColorPair } from "./types";
+import { byId } from "./dom";
 
-export function renderSidebar(DATA: ReportMeta, colorOf: (layer: string) => ColorPair): void {
-  byId('pageTitle').textContent = DATA.title;
-  byId('pageSubtitle').textContent = `${DATA.root} · entries: ${DATA.entries.join(', ')}`;
+export function renderSidebar(
+  DATA: ReportMeta,
+  colorOf: (layer: string) => ColorPair,
+): void {
+  byId("pageTitle").textContent = DATA.title;
+  byId("pageSubtitle").textContent =
+    `📂 ${DATA.root} 🔹 entries: ${DATA.entries.join(", ")}`;
 
-  const legendList = byId('legendList');
+  const legendList = byId("legendList");
   DATA.layers.forEach((layer) => {
-    const li = document.createElement('li');
-    const sw = document.createElement('span');
-    sw.className = 'swatch';
+    const li = document.createElement("li");
+    li.dataset.layer = layer;
+    const sw = document.createElement("span");
+    sw.className = "swatch";
     sw.style.background = colorOf(layer)[0];
     li.appendChild(sw);
     li.appendChild(document.createTextNode(layer));
-    const cnt = document.createElement('span');
-    cnt.className = 'cnt';
+    const cnt = document.createElement("span");
+    cnt.className = "cnt";
     cnt.textContent = String(DATA.layerCounts[layer]);
     li.appendChild(cnt);
     legendList.appendChild(li);
   });
 
-  const statsTable = byId('statsTable');
+  const statsTable = byId("statsTable");
   DATA.topFanIn.forEach((row) => {
-    const tr = document.createElement('tr');
-    const tdMod = document.createElement('td');
-    tdMod.className = 'mod';
+    const tr = document.createElement("tr");
+    const tdMod = document.createElement("td");
+    tdMod.className = "mod";
     tdMod.textContent = row.path;
-    const tdN = document.createElement('td');
-    tdN.className = 'n';
+    const tdN = document.createElement("td");
+    tdN.className = "n";
     tdN.textContent = String(row.count);
     tr.appendChild(tdMod);
     tr.appendChild(tdN);
     statsTable.appendChild(tr);
   });
 
-  if (DATA.warnings && DATA.warnings.length){
-    byId('warningsSection').hidden = false;
-    const wl = byId('warningsList');
+  if (DATA.warnings && DATA.warnings.length) {
+    byId("warningsSection").hidden = false;
+    const wl = byId("warningsList");
     DATA.warnings.forEach((w) => {
-      const d = document.createElement('div');
+      const d = document.createElement("div");
       d.textContent = `⚠ ${w}`;
       wl.appendChild(d);
     });
+  }
+}
+
+/** Marks the legend row for `layer` (or none, on null) — the sidebar's half of a canvas node hover. */
+export function highlightLayer(layer: string | null): void {
+  const rows = byId("legendList").children;
+  for (let i = 0; i < rows.length; i += 1) {
+    const li = rows[i];
+    if (li instanceof HTMLElement)
+      li.classList.toggle(
+        "highlight",
+        layer !== null && li.dataset.layer === layer,
+      );
   }
 }

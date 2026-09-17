@@ -161,6 +161,7 @@ export interface TreeNode {
  */
 export interface ReportMeta {
   title: string;
+  /** Just the scanned folder's name, not its full path. */
   root: string;
   entries: string[];
   layers: string[];
