@@ -1,3 +1,10 @@
+# [1.2.0](https://github.com/Vladimir-Romanets/import-atlas/compare/v1.1.0...v1.2.0) (2026-09-17)
+
+
+### Features
+
+* add layer-violation findings, layer-rules config, and init-rules command ([#34](https://github.com/Vladimir-Romanets/import-atlas/issues/34)) ([203e7a5](https://github.com/Vladimir-Romanets/import-atlas/commit/203e7a50b4681dbd91b2d7778496d179e36d6f49))
+
 # [1.1.0](https://github.com/Vladimir-Romanets/import-atlas/compare/v1.0.0...v1.1.0) (2026-09-17)
 
 
