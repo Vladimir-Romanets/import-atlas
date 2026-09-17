@@ -31,7 +31,7 @@ Only what fits on screen is drawn, so a few thousand files stay responsive; zoom
 
 ## Findings
 
-Everything the graph can hold against the code, filterable by name or path. Rows are grouped by what to do about them, so the advice is written once on the group instead of on every row, and each group has a `?` icon that opens a fuller explanation of the rule. Three rules feed the list. Groups are ordered by how sure the graph can be: what it states as fact first, then the two groups that need a second opinion.
+Everything the graph can hold against the code, filterable by name or path. Rows are grouped by what to do about them, so the advice is written once on the group instead of on every row, and each group has a `?` icon that opens a fuller explanation of the rule. Four rules feed the list. Groups are ordered by how sure the graph can be: what it states as fact first, then the two groups that need a second opinion.
 
 **Unused exports** — names nothing in the scan ever imports. Four groups:
 
@@ -47,6 +47,8 @@ Files often tangle into a group where everyone reaches everyone, and such a grou
 Only imports that run while a module is loading count. An import written inside a function — `lazy(() => import('./Page'))`, a `require()` in a branch — runs when that function is called, long after every module has loaded, so a loop closing only through one of those is not reported. A `require()` or `await import()` at the top level is counted: those run during loading, like a plain `import`.
 
 **Duplicate imports** — one row per file-and-module pair linked by more than one statement: a value import plus a separate type-only import, two re-export lines, or the same path written twice. Imports inside functions are left out here too, since a lazy `import()` next to a static one is not a line you could merge without undoing the code splitting.
+
+**Layer boundary violations** — only appears when a layer-rules file was checked: `import-atlas.rules.json` in `--root`, picked up on its own once it exists (generate one with `import-atlas init-rules`), or a different file named with `--rules`. One row per import that crosses from one layer into another the file isn't allowed to reach into, `high` confidence on every row since it's a check against a file the project's own team wrote, not a graph heuristic. Unlike the cycle and duplicate rules above, a deferred import (`lazy(() => import('./Page'))`) is still counted here — it crosses the same boundary a static import would, even though it carries no load-order coupling.
 
 The unused-export rules skip a file completely when the graph cannot speak for it: an entry file (nothing inside the scan imports it, so its exports serve whatever lies outside), a file pulled in wholesale with `import * as X`, an `import()`, a `require()` or an `export * from`, a file using `export =`, and any file that would not parse. The cycle and duplicate rules read the import edges instead of the exports, so they need no such exemption — an entry file can and does show up in those two groups.
 

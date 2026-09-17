@@ -16,6 +16,7 @@ const GROUP_LABELS: Record<string, string> = {
   'dead-reexport-high': 'Unimported re-exports',
   'circular-import-high': 'Circular imports',
   'dupe-import-high': 'Duplicate imports',
+  'layer-violation-high': 'Layer boundary violations',
 };
 
 interface Group {
@@ -81,12 +82,25 @@ function renderGroup(group: Group): { section: HTMLElement; rows: { el: HTMLElem
   table.className = 'f-table';
   const rows: { el: HTMLElement; haystack: string }[] = [];
 
+  // Every other group's `recommendation` is one fixed string shared by the
+  // whole group, so the advice paragraph above already says all there is to
+  // say and `reason` only repeats it in the tooltip. `layer-violation` is the
+  // exception — its `reason` names the specific layers and file a generic
+  // group-level blurb can't, so it earns a column of its own instead of
+  // staying hover-only. Its first column also swaps to the source layer
+  // instead of `finding.name`: for this kind `name` is the target file's
+  // path, which the reason column already spells out in full — repeating it
+  // in column one added nothing, while the source layer is what a reader
+  // scanning down the group actually wants to group by.
+  const showReasonColumn = group.items[0]?.kind === 'layer-violation';
+
   for (const finding of group.items) {
     const tr = document.createElement('tr');
+    const firstColumn = showReasonColumn ? finding.layer : finding.name;
 
     const name = document.createElement('td');
     name.className = 'f-name';
-    name.textContent = finding.name;
+    name.textContent = firstColumn;
     tr.appendChild(name);
 
     const path = document.createElement('td');
@@ -94,9 +108,19 @@ function renderGroup(group: Group): { section: HTMLElement; rows: { el: HTMLElem
     path.textContent = finding.relPath;
     tr.appendChild(path);
 
-    tr.title = finding.reason;
+    let haystack = `${firstColumn}\n${finding.relPath}`;
+    if (showReasonColumn) {
+      const reason = document.createElement('td');
+      reason.className = 'f-reason';
+      reason.textContent = finding.reason;
+      tr.appendChild(reason);
+      haystack += `\n${finding.reason}`;
+    } else {
+      tr.title = finding.reason;
+    }
+
     table.appendChild(tr);
-    rows.push({ el: tr, haystack: `${finding.name}\n${finding.relPath}`.toLowerCase() });
+    rows.push({ el: tr, haystack: haystack.toLowerCase() });
   }
 
   section.appendChild(table);
@@ -119,7 +143,7 @@ export function renderFindings(data: ReportMeta): void {
   const fileCount = files.size;
   byId('findingsSummary').textContent = findings.length
     ? `${findings.length} finding${findings.length > 1 ? 's' : ''} across ${fileCount} file${fileCount > 1 ? 's' : ''}.`
-    : 'Nothing to flag: no unimported exports, circular imports, or duplicate imports found.';
+    : 'Nothing to flag: no unimported exports, circular imports, duplicate imports, or layer violations found.';
 
   // Unlike the tree's node pruning, the list still runs on a graph with
   // holes — but a reader weighing a row deserves to know that a file which

@@ -1,0 +1,61 @@
+<h2>Technical Analysis: Layer Violations</h2>
+<p>
+  This rule only runs when a layer-rules file applies: <code>import-atlas.rules.json</code> in
+  <code>--root</code>, picked up on its own once it exists (generate a starting point with
+  <code>import-atlas init-rules</code>), or a different file passed via <code>--rules</code>. It
+  checks every import that crosses from one layer into another — a layer being the first folder
+  under <code>src/</code>, or under the project root — against that file, and flags any crossing
+  it does not allow.
+</p>
+<p>
+  Scored <code>high</code> on every row, unlike unimported-export findings: this is a deterministic
+  check against a file the project's own team wrote, not a heuristic about what the import graph
+  might be missing.
+</p>
+<p>
+  Unlike the circular-import and duplicate-import rules, a <strong>deferred</strong> import —
+  <code>lazy(() =&gt; import('./Page'))</code>, a <code>require()</code> inside a function — is
+  still flagged here. Those other rules exclude deferred imports because they care about load
+  order, which a lazy import cannot affect. This rule cares about architecture: a dynamic import
+  still reaches into a layer it was not supposed to touch, whether or not it runs at module load.
+</p>
+
+<h3>1. Reading a Row</h3>
+<p>
+  The first column is the layer the importing file belongs to; the second is that file's relative
+  path. The third column is the specific violation: which layer it reached into, and through which
+  file.
+</p>
+
+<h3>2. The Rules File</h3>
+<p>
+  A layer-rules file is a JSON object mapping each layer name to what it may import from:
+</p>
+<ul>
+  <li><code>"*"</code> — this layer may import from any other layer.</li>
+  <li>an array of layer names — an explicit allowlist of what this layer may import from.</li>
+  <li>
+    a layer missing from the file entirely, or listed with <code>[]</code> — this layer may not
+    import from any other layer.
+  </li>
+</ul>
+<p>
+  Importing from a file in the same layer never counts as a violation, regardless of the rules.
+</p>
+
+<h3>3. Recommendations</h3>
+<p>
+  <strong>Resolution Strategy:</strong>
+</p>
+<ul>
+  <li>
+    <strong>Unintended crossing:</strong> move the dependency behind an interface the target layer
+    already exposes to layers allowed to reach it, or relocate the importing code to a layer that
+    is allowed to reach the target.
+  </li>
+  <li>
+    <strong>Intended crossing:</strong> add the target layer to the importing layer's allowlist in
+    the rules file, and commit that change — the rules file is project policy, reviewed like any
+    other config.
+  </li>
+</ul>

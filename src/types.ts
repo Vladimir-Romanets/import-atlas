@@ -101,15 +101,19 @@ export interface Finding {
    * `dead-export` for a name the file declares itself; `dead-reexport` for
    * one it forwards with `export ... from`; `circular-import` for one loop
    * of files importing each other (or a self-import); `dupe-import` for one
-   * target module pulled in via several statements from the same file.
+   * target module pulled in via several statements from the same file;
+   * `layer-violation` for one import that crosses a layer boundary a
+   * layer-rules file does not allow.
    */
-  kind: 'dead-export' | 'dead-reexport' | 'circular-import' | 'dupe-import';
+  kind: 'dead-export' | 'dead-reexport' | 'circular-import' | 'dupe-import' | 'layer-violation';
   fileId: string;
   /**
    * Every file the finding covers, when that is more than `fileId` — for a
-   * `circular-import`, the files on the loop, `fileId` first. Rows from one
-   * tangled group overlap on purpose: unioning `fileIds ?? [fileId]` is how
-   * affected files are counted without double-counting a shared file.
+   * `circular-import`, the files on the loop, `fileId` first; for a
+   * `layer-violation`, the importing file and the one it reaches into.
+   * Rows from one tangled group overlap on purpose: unioning `fileIds ??
+   * [fileId]` is how affected files are counted without double-counting a
+   * shared file.
    */
   fileIds?: string[];
   relPath: string;
@@ -118,7 +122,8 @@ export interface Finding {
    * `dead-export`/`dead-reexport`: the exported name as consumers write it.
    * `circular-import`: how many files are on the loop (`"3 files"`), or
    * `"self-import"`. `dupe-import`: the module's label and statement count
-   * (`"Button (×2)"`).
+   * (`"Button (×2)"`). `layer-violation`: the relative path of the file
+   * reached into.
    */
   name: string;
   confidence: FindingConfidence;

@@ -5,6 +5,7 @@ import { describe, expect, it } from 'vitest';
 import { computeFindings } from '../engine/findings';
 import { computeCircularImports } from '../engine/circularImports';
 import { computeDupeImports } from '../engine/dupeImports';
+import { computeLayerViolations } from '../engine/layerViolations';
 import type { Edge, ExportFacts, FileNode, Finding, ScanResult } from '../types';
 
 /**
@@ -41,6 +42,7 @@ const DOCUMENTED_GROUPS = [
   'dead-export-medium',
   'dead-reexport-high',
   'dupe-import-high',
+  'layer-violation-high',
 ];
 
 function facts(partial: Partial<ExportFacts> = {}): ExportFacts {
@@ -124,6 +126,10 @@ const emittedGroups = (): string[] => [
     ...computeFindings(scanCoveringEveryGroup()).map(groupKey),
     ...computeCircularImports(scanCoveringEveryGroup()).map(groupKey),
     ...computeDupeImports(scanCoveringEveryGroup()).map(groupKey),
+    // Empty rules deny every cross-layer edge — the fixture already has
+    // several (app -> utils, app -> page, app -> ui), so this trips
+    // layer-violation without needing files of its own.
+    ...computeLayerViolations(scanCoveringEveryGroup(), {}).map(groupKey),
   ]),
 ].sort();
 
