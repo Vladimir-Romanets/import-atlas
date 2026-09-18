@@ -1,6 +1,6 @@
 import { edgeKey } from "../../../utils/edgeKey";
 import { NODE_H, NODE_W, SVGNS } from "../constants";
-import { fileNameOf, folderOf, shortLabel } from "../layout";
+import { fileNameOf, folderOf, shortLabel, MAX_WIDTH_SUB } from "../layout";
 import type { ColorPair } from "../types";
 import type { Placed, Viewport } from "../viewport";
 import { layoutGraph, type GraphLayout } from "./dagLayout";
@@ -468,7 +468,7 @@ export function createGraphRenderer({
     // The dash and the fade are the only places this shows on screen, and the
     // fade is all there is once zoomed out — so it belongs in the text too.
     const typeOnly = node.reachedOnlyByTypes ? "\nreached only as a type" : "";
-    return `${node.label} — ${node.relPath}\n${importers}, ${imports}${typeOnly}${node.note ? `\nimports: ${node.note}` : ""}`;
+    return `${node.relPath}\n${importers}, ${imports}${typeOnly}${node.note ? `\nimports: ${node.note}` : ""}`;
   };
 
   const renderNode = (
@@ -554,7 +554,7 @@ export function createGraphRenderer({
     subTspan.setAttribute("class", "label-sub");
     subTspan.setAttribute("x", "16");
     subTspan.setAttribute("dy", "9");
-    subTspan.textContent = shortLabel(subText);
+    subTspan.textContent = shortLabel(subText, MAX_WIDTH_SUB);
     text.appendChild(subTspan);
     g.appendChild(text);
 
@@ -708,8 +708,11 @@ export function createGraphRenderer({
       // reached from somewhere else.
       const opens =
         !visibility.expanded.has(node.id) &&
-        hiddenImportCount(node.id, index, (id) => layoutById[id] !== undefined) >
-          0;
+        hiddenImportCount(
+          node.id,
+          index,
+          (id) => layoutById[id] !== undefined,
+        ) > 0;
 
       // Clicking an already-clicked node walks one step backwards, to the
       // file that imports it — the click that otherwise had nothing left
@@ -731,9 +734,7 @@ export function createGraphRenderer({
           draw();
           // Selection moved, so the keyboard moves with it — a second
           // Enter then steps up again.
-          nodesG
-            .querySelector<SVGGElement>(`[data-id="${up.id}"]`)
-            ?.focus();
+          nodesG.querySelector<SVGGElement>(`[data-id="${up.id}"]`)?.focus();
           return;
         }
       }

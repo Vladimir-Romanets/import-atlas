@@ -35,19 +35,23 @@
       <h2>Layers</h2>
       <ul id="legendList"></ul>
     </section>
-    <section class="legend">
-      <h2>Edges</h2>
-      <ul class="legendList">
-        <li><span class="edge-sample"></span>import</li>
-        <li><span class="edge-sample deferred"></span>lazy / dynamic</li>
-        {{edgeLegendExtra}}
-      </ul>
-    </section>
-    <section class="legend">
-      <h2>Nodes</h2>
-      <ul class="legendList">
-        <li><span class="node-sample"></span>type-only</li>
-      </ul>
+    <section class="legend legend-carousel">
+      <div class="legend-carousel-wrapper">
+        <div class="legend-carousel-item">
+          <h2>Edges</h2>
+          <ul class="legendList">
+            <li><span class="edge-sample"></span>import</li>
+            <li><span class="edge-sample deferred"></span>lazy / dynamic</li>
+            {{edgeLegendExtra}}
+          </ul>
+        </div>
+        <div class="legend-carousel-item">
+          <h2>Nodes</h2>
+          <ul class="legendList">
+            <li class="node-sample">type-only</li>
+          </ul>
+        </div>
+      </div>
     </section>
     <section>
       <h2>
