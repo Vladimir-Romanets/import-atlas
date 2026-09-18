@@ -9,6 +9,9 @@
      more — see DETAIL_ZOOM in graphRenderer.ts. */
   .box-far{fill:var(--dot-l);stroke:none;opacity:0.85;}
   @media (prefers-color-scheme: dark){ .box-far{fill:var(--dot-d);} }
+  /* stroke:none on .box-far hides a dashed border entirely, so a file reached
+     only for its types gets a second channel here: faded, not outlined. */
+  .node.type-only .box-far{opacity:0.4;}
 
   /* How many files import this one, drawn where their edges converge —
      and the control that puts those importers on screen. */

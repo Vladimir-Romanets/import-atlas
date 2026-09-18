@@ -1,4 +1,5 @@
 import { edgeKey } from "../utils/edgeKey";
+import { carriesTypesOnly } from "./typeOnlyReach";
 import { unionNames } from "../utils/importNames";
 import { summarizeExternals } from "../utils/summarize";
 import type { ScanResult, TreeNode } from "../types";
@@ -62,6 +63,15 @@ export function buildForest(scanResult: ScanResult): TreeNode[] {
   // beside a dynamic one still loads the file eagerly, and a dotted line
   // would say the opposite.
   const edgeDeferred: Record<string, boolean> = {};
+  // Every name this edge's statements expose, split by what each carries:
+  // types on one side, a value on the other. The first minus the second is
+  // `importedAsTypeOnly`, so a name pulled as a value anywhere on the pair
+  // is never marked. A wildcard exposure ('*') names nothing, so a type-only
+  // one contributes nothing at all; a non-type-only one means something
+  // unnameable crosses as a value, and then no name here can be trusted.
+  const edgeExposesTypeOnly: Record<string, Set<string>> = {};
+  const edgeExposesRuntime: Record<string, Set<string>> = {};
+  const edgeHasRuntimeWildcard: Record<string, boolean> = {};
 
   for (const edge of scanResult.edges) {
     (childrenOf[edge.from] ||= []).push(edge.to);
@@ -71,6 +81,32 @@ export function buildForest(scanResult: ScanResult): TreeNode[] {
     edgeDeferred[key] = (edgeDeferred[key] ?? true) && edge.isDeferred;
     if (edge.isReexport) isBarrel[edge.from] = true;
     else hasPlainImportEdge[key] = true;
+
+    if (edge.exposedNames === '*') {
+      if (!carriesTypesOnly(edge)) edgeHasRuntimeWildcard[key] = true;
+    } else {
+      // A type-only statement makes every name it exposes a type name; any
+      // other statement is asked name by name, which is what lets a mixed
+      // `import { storeUser, FilterType }` still mark `FilterType`.
+      const typeOnlyHere = new Set(
+        carriesTypesOnly(edge) ? edge.exposedNames : edge.typeOnlyNames,
+      );
+      for (const name of edge.exposedNames) {
+        const set = typeOnlyHere.has(name)
+          ? (edgeExposesTypeOnly[key] ||= new Set())
+          : (edgeExposesRuntime[key] ||= new Set());
+        set.add(name);
+      }
+    }
+  }
+
+  /** `importedAsTypeOnly` for one edge: names every statement on it carries as a type, never as a value. */
+  function typeOnlyNamesOf(key: string): string[] {
+    if (edgeHasRuntimeWildcard[key]) return [];
+    const typeOnly = edgeExposesTypeOnly[key];
+    if (!typeOnly) return [];
+    const runtime = edgeExposesRuntime[key];
+    return [...typeOnly].filter((name) => !runtime?.has(name));
   }
 
   /**
@@ -134,6 +170,8 @@ export function buildForest(scanResult: ScanResult): TreeNode[] {
       ref,
       importedAs: exposes ?? '*',
       isDeferred: parentKey !== null ? (edgeDeferred[parentKey] ?? false) : false,
+      reachedOnlyByTypes: file.reachedOnlyByTypes,
+      importedAsTypeOnly: parentKey !== null ? typeOnlyNamesOf(parentKey) : [],
       fanIn: scanResult.fanIn[fileId] || 0,
       children: [],
     };

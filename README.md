@@ -71,3 +71,4 @@ See [CONTRIBUTING.md](CONTRIBUTING.md) for how to build the tool from source and
 - In the graph view, a node's column is read from what is on screen, so opening or closing things moves nodes sideways. Position is worth comparing within one picture, not between two.
 - The graph view will draw whatever you open, including a node with three hundred importers. Nothing caps that — a fan of three hundred lines is a true answer to "who uses this", but it is not a readable one.
 - Framework routing is never drawn as an edge — it is a file-name convention, not an import. See [docs/file-system-routers.md](docs/file-system-routers.md) for how to get full coverage anyway.
+- The type-only marking reads declarations, not types, so it under-reports. A `class` used only as a type, or a name reached through `import *` or a dynamic `import()`, stays unmarked — and an unmarked name is one the graph couldn't call a type, not one it calls a value.

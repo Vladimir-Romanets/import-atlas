@@ -24,7 +24,7 @@ describe('extractImportSpecifiers', () => {
   it('extracts named imports', () => {
     const file = write(`import { Select } from './select';`);
     expect(extractImportSpecifiers(file)).toEqual([
-      { moduleSpecifier: './select', names: ['Select'], exposedNames: ['Select'], isReexport: false, isDeferred: false },
+      { moduleSpecifier: './select', names: ['Select'], exposedNames: ['Select'], isReexport: false, isDeferred: false, isTypeOnly: false },
     ]);
   });
 
@@ -35,7 +35,7 @@ describe('extractImportSpecifiers', () => {
     // this file (and the viewer's node label) would recognize it as.
     const file = write(`import { Select as MySelect } from './select';`);
     expect(extractImportSpecifiers(file)).toEqual([
-      { moduleSpecifier: './select', names: ['Select'], exposedNames: ['MySelect'], isReexport: false, isDeferred: false },
+      { moduleSpecifier: './select', names: ['Select'], exposedNames: ['MySelect'], isReexport: false, isDeferred: false, isTypeOnly: false },
     ]);
   });
 
@@ -46,7 +46,7 @@ describe('extractImportSpecifiers', () => {
     // viewer labels the node 'Select', not the internal 'default' sentinel.
     const file = write(`import Select from './select';`);
     expect(extractImportSpecifiers(file)).toEqual([
-      { moduleSpecifier: './select', names: ['default'], exposedNames: ['Select'], isReexport: false, isDeferred: false },
+      { moduleSpecifier: './select', names: ['default'], exposedNames: ['Select'], isReexport: false, isDeferred: false, isTypeOnly: false },
     ]);
   });
 
@@ -64,28 +64,28 @@ describe('extractImportSpecifiers', () => {
     // sentinel used only for matching against LoginPage.tsx's own export).
     const file = write(`import AAA from './LoginPage';`);
     expect(extractImportSpecifiers(file)).toEqual([
-      { moduleSpecifier: './LoginPage', names: ['default'], exposedNames: ['AAA'], isReexport: false, isDeferred: false },
+      { moduleSpecifier: './LoginPage', names: ['default'], exposedNames: ['AAA'], isReexport: false, isDeferred: false, isTypeOnly: false },
     ]);
   });
 
   it('marks namespace imports as wildcard', () => {
     const file = write(`import * as Select from './select';`);
     expect(extractImportSpecifiers(file)).toEqual([
-      { moduleSpecifier: './select', names: '*', exposedNames: '*', isReexport: false, isDeferred: false },
+      { moduleSpecifier: './select', names: '*', exposedNames: '*', isReexport: false, isDeferred: false, isTypeOnly: false },
     ]);
   });
 
   it('marks a bare side-effect import as wildcard', () => {
     const file = write(`import './select';`);
     expect(extractImportSpecifiers(file)).toEqual([
-      { moduleSpecifier: './select', names: '*', exposedNames: '*', isReexport: false, isDeferred: false },
+      { moduleSpecifier: './select', names: '*', exposedNames: '*', isReexport: false, isDeferred: false, isTypeOnly: false },
     ]);
   });
 
   it('extracts named re-exports and marks them as re-exports', () => {
     const file = write(`export { Select } from './select';`);
     expect(extractImportSpecifiers(file)).toEqual([
-      { moduleSpecifier: './select', names: ['Select'], exposedNames: ['Select'], isReexport: true, isDeferred: false },
+      { moduleSpecifier: './select', names: ['Select'], exposedNames: ['Select'], isReexport: true, isDeferred: false, isTypeOnly: false },
     ]);
   });
 
@@ -95,35 +95,35 @@ describe('extractImportSpecifiers', () => {
     // from *this* file — the two must not be conflated.
     const file = write(`export { A as Alpha } from './a';`);
     expect(extractImportSpecifiers(file)).toEqual([
-      { moduleSpecifier: './a', names: ['A'], exposedNames: ['Alpha'], isReexport: true, isDeferred: false },
+      { moduleSpecifier: './a', names: ['A'], exposedNames: ['Alpha'], isReexport: true, isDeferred: false, isTypeOnly: false },
     ]);
   });
 
   it('marks `export * from` as wildcard on both names and exposedNames', () => {
     const file = write(`export * from './select';`);
     expect(extractImportSpecifiers(file)).toEqual([
-      { moduleSpecifier: './select', names: '*', exposedNames: '*', isReexport: true, isDeferred: false },
+      { moduleSpecifier: './select', names: '*', exposedNames: '*', isReexport: true, isDeferred: false, isTypeOnly: false },
     ]);
   });
 
   it('marks `export * as NS from` as wildcard on both names and exposedNames', () => {
     const file = write(`export * as Select from './select';`);
     expect(extractImportSpecifiers(file)).toEqual([
-      { moduleSpecifier: './select', names: '*', exposedNames: '*', isReexport: true, isDeferred: false },
+      { moduleSpecifier: './select', names: '*', exposedNames: '*', isReexport: true, isDeferred: false, isTypeOnly: false },
     ]);
   });
 
   it('marks dynamic import() as wildcard and not a re-export', () => {
     const file = write(`const mod = import('./select');`);
     expect(extractImportSpecifiers(file)).toEqual([
-      { moduleSpecifier: './select', names: '*', exposedNames: '*', isReexport: false, isDeferred: false },
+      { moduleSpecifier: './select', names: '*', exposedNames: '*', isReexport: false, isDeferred: false, isTypeOnly: false },
     ]);
   });
 
   it('marks require() as wildcard and not a re-export', () => {
     const file = write(`const mod = require('./select');`);
     expect(extractImportSpecifiers(file)).toEqual([
-      { moduleSpecifier: './select', names: '*', exposedNames: '*', isReexport: false, isDeferred: false },
+      { moduleSpecifier: './select', names: '*', exposedNames: '*', isReexport: false, isDeferred: false, isTypeOnly: false },
     ]);
   });
 
@@ -176,6 +176,59 @@ describe('extractImportSpecifiers', () => {
       expect(
         deferredFlags(`function outer() { return () => import('./deep'); }`),
       ).toEqual([true]);
+    });
+  });
+
+  // The compiler erases these entirely, unlike isDeferred (which still
+  // runs, later). One rule per form, plus the two traps the task calls out
+  // by name: a default binding is always a value, and a side-effect import
+  // executes.
+  describe('isTypeOnly', () => {
+    const typeOnlyFlags = (source: string): boolean[] =>
+      extractImportSpecifiers(write(source)).map((spec) => spec.isTypeOnly);
+
+    it('marks `import type { A }` as type-only', () => {
+      expect(typeOnlyFlags(`import type { A } from './a';`)).toEqual([true]);
+    });
+
+    it('marks `import { type A, type B }` as type-only when every named binding is typed', () => {
+      expect(typeOnlyFlags(`import { type A, type B } from './a';`)).toEqual([true]);
+    });
+
+    it('does NOT mark `import { A, type B }` as type-only — one value binding makes it real', () => {
+      expect(typeOnlyFlags(`import { A, type B } from './a';`)).toEqual([false]);
+    });
+
+    it('does NOT mark `import D, { type X }` as type-only — the default binding is a value', () => {
+      expect(typeOnlyFlags(`import D, { type X } from './a';`)).toEqual([false]);
+    });
+
+    it('does NOT mark a bare side-effect import as type-only — it executes', () => {
+      expect(typeOnlyFlags(`import './a';`)).toEqual([false]);
+    });
+
+    it('marks `import type * as NS` as type-only', () => {
+      expect(typeOnlyFlags(`import type * as NS from './a';`)).toEqual([true]);
+    });
+
+    it('marks `export type { X } from` as type-only', () => {
+      expect(typeOnlyFlags(`export type { X } from './a';`)).toEqual([true]);
+    });
+
+    it('marks `export { type X } from` as type-only when every named element is typed', () => {
+      expect(typeOnlyFlags(`export { type X } from './a';`)).toEqual([true]);
+    });
+
+    it('does NOT mark a plain `export * from` as type-only', () => {
+      expect(typeOnlyFlags(`export * from './a';`)).toEqual([false]);
+    });
+
+    it('does NOT mark a dynamic import() as type-only', () => {
+      expect(typeOnlyFlags(`const mod = import('./a');`)).toEqual([false]);
+    });
+
+    it('does NOT mark require() as type-only', () => {
+      expect(typeOnlyFlags(`const mod = require('./a');`)).toEqual([false]);
     });
   });
 });
@@ -265,5 +318,45 @@ describe('extractModuleFacts — exported names', () => {
     const facts = extractModuleFacts(file);
     expect(facts.imports).toHaveLength(1);
     expect(facts.exports.ownNames).toEqual(['wrapped']);
+  });
+});
+
+describe('extractModuleFacts — type-space names', () => {
+  const typeNames = (file: string) =>
+    [...extractModuleFacts(file).exports.typeDeclNames].sort();
+
+  it('records `interface` and `type` declarations', () => {
+    const file = write(`export interface Props { a: string }\nexport type Id = string;`);
+    expect(typeNames(file)).toEqual(['Id', 'Props']);
+  });
+
+  it('leaves out declarations that also introduce a value', () => {
+    const file = write(`
+      export class Button {}
+      export enum Mode { A }
+      export function run() {}
+      export const flag = 1;
+    `);
+    expect(typeNames(file)).toEqual([]);
+  });
+
+  it('follows a local name through `export { Local }`, whichever order it is written in', () => {
+    const file = write(`export { Props, run };\ninterface Props { a: string }\nfunction run() {}`);
+    expect(typeNames(file)).toEqual(['Props']);
+  });
+
+  it('carries the outward name through a rename', () => {
+    const file = write(`interface Props {}\nexport { Props as ButtonProps };`);
+    expect(typeNames(file)).toEqual(['ButtonProps']);
+  });
+
+  it('treats a name merged with a value declaration as a value', () => {
+    const file = write(`export interface Thing { a: string }\nexport const Thing = { a: '' };`);
+    expect(typeNames(file)).toEqual([]);
+  });
+
+  it('records an inline `export { type X }` even with no local declaration to read', () => {
+    const file = write(`export { type Props };`);
+    expect(typeNames(file)).toEqual(['Props']);
   });
 });

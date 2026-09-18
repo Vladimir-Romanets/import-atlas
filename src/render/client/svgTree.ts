@@ -59,6 +59,7 @@ export function createTreeRenderer({
     const classes = ["node"];
     if (node.depth === 0) classes.push("entry");
     if (node.renderId === activeId) classes.push("active");
+    if (node.reachedOnlyByTypes) classes.push("type-only");
     g.setAttribute("class", classes.join(" "));
     g.setAttribute("transform", `translate(${node.x},${node.y - NODE_H / 2})`);
     g.setAttribute("tabindex", "0");
@@ -80,9 +81,26 @@ export function createTreeRenderer({
       importedAs !== node.label
         ? `${importedAs} (${node.label}) — ${node.relPath}`
         : `${node.label} — ${node.relPath}`;
+    // A screen reader should hear what the detail panel shows — the type
+    // prefix — even though the visible label itself never gets one.
+    const importedAsSpoken =
+      node.importedAs !== "*" && node.importedAs.length > 0
+        ? node.importedAs
+            .map((name) => (node.importedAsTypeOnly.includes(name) ? `type ${name}` : name))
+            .join(", ")
+        : node.label;
+    const fullLabelSpoken =
+      importedAs !== node.label
+        ? `${importedAsSpoken} (${node.label}) — ${node.relPath}`
+        : `${importedAsSpoken} — ${node.relPath}`;
+    // The dashed border says this on screen; spell it out for a reader who
+    // gets no border.
+    const spokenTypeOnly = node.reachedOnlyByTypes
+      ? ". reached only as a type"
+      : "";
     g.setAttribute(
       "aria-label",
-      `${fullLabel}${node.note ? `. imports ${node.note}` : ""}`,
+      `${fullLabelSpoken}${spokenTypeOnly}${node.note ? `. imports ${node.note}` : ""}`,
     );
 
     const rect = document.createElementNS(SVGNS, "rect");

@@ -12,6 +12,7 @@ function file(id: string, externalImports: string[] = []): FileNode {
     externalImports,
     unresolvedImports: [],
     exports: null,
+    reachedOnlyByTypes: false,
   };
 }
 
@@ -23,6 +24,8 @@ function edge(
   opts: {
     isReexport?: boolean;
     isDeferred?: boolean;
+    isTypeOnly?: boolean;
+    requestsTypesOnly?: boolean;
     exposedNames?: string[] | '*';
   } = {},
 ): Edge {
@@ -33,6 +36,9 @@ function edge(
     exposedNames: opts.exposedNames ?? names,
     isReexport: opts.isReexport ?? false,
     isDeferred: opts.isDeferred ?? false,
+    isTypeOnly: opts.isTypeOnly ?? false,
+    requestsTypesOnly: opts.requestsTypesOnly ?? false,
+    typeOnlyNames: [],
   };
 }
 
@@ -173,6 +179,23 @@ describe('buildGraph — merging', () => {
     const lazy = edgeOf(graph, 'app/routes.ts', 'app/Lazy.ts');
     expect(lazy.statements).toBe(2);
     expect(lazy.mergeableStatements).toBe(0);
+  });
+
+  it('treats a pair as type-only only when every statement linking it is', () => {
+    const graph = buildGraph(
+      makeScan(
+        ['app/entry.ts'],
+        ['app/entry.ts', 'app/types.ts', 'app/mixed.ts'],
+        [
+          edge('app/entry.ts', 'app/types.ts', ['Props'], { isTypeOnly: true }),
+          edge('app/entry.ts', 'app/mixed.ts', ['Props'], { isTypeOnly: true }),
+          edge('app/entry.ts', 'app/mixed.ts', ['value']),
+        ],
+      ),
+    );
+
+    expect(edgeOf(graph, 'app/entry.ts', 'app/types.ts').isTypeOnly).toBe(true);
+    expect(edgeOf(graph, 'app/entry.ts', 'app/mixed.ts').isTypeOnly).toBe(false);
   });
 
   it("keeps '*' absorbing when merging the names of parallel statements", () => {

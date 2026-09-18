@@ -10,6 +10,14 @@ Barrels are the exception: a barrel gets its own expansion for each distinct set
 
 A link taken only lazily — a dynamic `import()`, or a `require` inside a function — is drawn dotted, as in the graph view. A pair linked by both a lazy statement and a plain one is drawn solid: the file loads eagerly regardless.
 
+A node gets a dashed border when every path to its file goes through a type-only import: nothing in the scan asks it for a value. One value path anywhere keeps the border solid.
+
+The detail panel is finer, and independent of it. Select a node and the names it was imported by are listed, each one this parent pulls only as a type written `type Name`. So `import { storeUser, FilterType }` keeps a solid border — `storeUser` is a real value — and still says which of the two is a type.
+
+Both count `import type { X } from`, and equally a plain `import { SomeType } from './x'` whose names turn out to be declared as an `interface` or a `type`, chased through barrels to wherever they live. Reading declarations rather than types is what keeps this at parser speed on a project that doesn't compile, and is also its limit: a `class` is a value declaration even where every use of it is `let x: Foo`, and a name reached through `import * as X`, an `import()` or a `require()` can't be pinned to a declaration at all. An unmarked name is one the graph couldn't call a type, not one it calls a value.
+
+None of it promises the file is absent from your build. That depends on `verbatimModuleSyntax` and on which tool strips the types — under that flag `import { type A } from './a'` is emitted as a side-effect-bearing `import {} from './a'` — and import statements alone cannot see it.
+
 ## Graph
 
 Written by `import-atlas graph`, as a separate report. Every file is one node, however many places import it, and every importer gets an edge to it. So the thing a tree has to repeat — the barrel that twelve features use, the helper half the app imports — is drawn once here, with the twelve lines arriving at it. That convergence is the picture.
@@ -28,6 +36,8 @@ Selecting a node dims everything it doesn't touch and lights up both directions 
 Cycle-closing edges are drawn dashed and red, right to left; lazy or dynamic imports are dotted. Columns are the distance from whatever is furthest upstream **among the nodes currently on screen**, so opening and closing things does move nodes sideways — the alternative is measuring against the whole project, which parks a widely-shared barrel hundreds of columns to the right of the entry point that also imports it directly.
 
 Only what fits on screen is drawn, so a few thousand files stay responsive; zoomed far out, nodes become plain blocks of their layer's colour, since an 11px label is unreadable there anyway.
+
+A file every path reaches only through a type-only import is drawn with a dashed border, same as in the tree and with the same caveats. Zoomed far out, where a node is a solid block with no border to dash, it is faded instead.
 
 ## Findings
 
