@@ -1,3 +1,10 @@
+# [1.4.0](https://github.com/Vladimir-Romanets/import-atlas/compare/v1.3.0...v1.4.0) (2026-09-18)
+
+
+### Features
+
+* turn the Edges/Nodes legend into a carousel and drop the redundant node-label prefix ([#36](https://github.com/Vladimir-Romanets/import-atlas/issues/36)) ([fac4dfd](https://github.com/Vladimir-Romanets/import-atlas/commit/fac4dfda14e271cbf3bb905e5a407bc1a2223de4))
+
 # [1.3.0](https://github.com/Vladimir-Romanets/import-atlas/compare/v1.2.0...v1.3.0) (2026-09-18)
 
 
