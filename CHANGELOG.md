@@ -1,3 +1,10 @@
+# [1.3.0](https://github.com/Vladimir-Romanets/import-atlas/compare/v1.2.0...v1.3.0) (2026-09-18)
+
+
+### Features
+
+* mark type-only imports in the tree and graph viewers ([#35](https://github.com/Vladimir-Romanets/import-atlas/issues/35)) ([1e63d13](https://github.com/Vladimir-Romanets/import-atlas/commit/1e63d13ec5a71372438e807056a04f219d4405c7))
+
 # [1.2.0](https://github.com/Vladimir-Romanets/import-atlas/compare/v1.1.0...v1.2.0) (2026-09-17)
 
 
