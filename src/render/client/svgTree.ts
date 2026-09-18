@@ -1,5 +1,5 @@
 import { SVGNS, ROW_H, NODE_W, NODE_H, LINE_GAP } from "./constants";
-import { buildLayout, shortLabel, folderOf, fileNameOf } from "./layout";
+import { buildLayout, shortLabel, folderOf, fileNameOf, MAX_WIDTH_SUB } from "./layout";
 import type { ColorPair, RenderNode } from "./types";
 
 export interface TreeRenderer {
@@ -77,22 +77,18 @@ export function createTreeRenderer({
     // Secondary label: the filename with its extension, prefixed by the
     // parent folder for index/barrel files, which are otherwise ambiguous.
     const subText = folder ? `${folder}/${fileName}` : fileName;
-    const fullLabel =
-      importedAs !== node.label
-        ? `${importedAs} (${node.label}) — ${node.relPath}`
-        : `${node.label} — ${node.relPath}`;
+    const fullLabel = `${importedAs} — ${node.relPath}`;
     // A screen reader should hear what the detail panel shows — the type
     // prefix — even though the visible label itself never gets one.
     const importedAsSpoken =
       node.importedAs !== "*" && node.importedAs.length > 0
         ? node.importedAs
-            .map((name) => (node.importedAsTypeOnly.includes(name) ? `type ${name}` : name))
+            .map((name) =>
+              node.importedAsTypeOnly.includes(name) ? `type ${name}` : name,
+            )
             .join(", ")
         : node.label;
-    const fullLabelSpoken =
-      importedAs !== node.label
-        ? `${importedAsSpoken} (${node.label}) — ${node.relPath}`
-        : `${importedAsSpoken} — ${node.relPath}`;
+    const fullLabelSpoken = `${importedAsSpoken} — ${node.relPath}`;
     // The dashed border says this on screen; spell it out for a reader who
     // gets no border.
     const spokenTypeOnly = node.reachedOnlyByTypes
@@ -144,7 +140,7 @@ export function createTreeRenderer({
       subTspan.setAttribute("class", "label-sub");
       subTspan.setAttribute("x", "16");
       subTspan.setAttribute("dy", "9");
-      subTspan.textContent = shortLabel(subText);
+      subTspan.textContent = shortLabel(subText, MAX_WIDTH_SUB);
       text.appendChild(subTspan);
     } else {
       text.setAttribute("y", String(NODE_H / 2 + 4));
