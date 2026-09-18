@@ -5,6 +5,7 @@ import type { Edge, ExportFacts, FileNode, Finding, ScanResult } from '../types'
 function facts(partial: Partial<ExportFacts> = {}): ExportFacts {
   return {
     ownNames: [],
+    typeDeclNames: [],
     defaultAggregateNames: [],
     defaultLocalName: null,
     hasExportEquals: false,

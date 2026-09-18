@@ -10,6 +10,17 @@ export interface ExportFacts {
   /** Names this file exports via its own declarations. `'default'` for a default export, whatever form it takes. */
   ownNames: string[];
   /**
+   * The subset of `ownNames` declared as `interface` or `type` — names that
+   * exist only in type space, so an import asking for one carries no value
+   * however it is written. Lets `import { SomeType } from './x'` be read as
+   * a type import without a type checker.
+   *
+   * A `class` is absent on purpose: it declares a value as well, and telling
+   * a class used only as a type from one that is constructed needs the
+   * checker this scan does without. `enum` and `namespace` are values too.
+   */
+  typeDeclNames: string[];
+  /**
    * Property names of a default-exported object literal
    * (`const Utils = { leftPad, isBlank }; export default Utils`). Consumers
    * reach them as `Utils.leftPad` — property access the import graph cannot
@@ -44,6 +55,20 @@ export interface FileNode {
   unresolvedImports: string[];
   /** `null` when the file was never parsed (an asset, or a file that wouldn't parse), so findings don't read an empty list as "exports nothing". */
   exports: ExportFacts | null;
+  /**
+   * True when no entry point reaches this file without crossing a type-only
+   * edge — the project only ever pulls it in for its types.
+   *
+   * Deliberately NOT a claim that the file is absent from the build: that
+   * depends on `verbatimModuleSyntax` and on which tool strips the types,
+   * neither of which a scan of import statements can see. See
+   * `computeTypeOnlyReach`, and note the `coverageGaps` caveat there.
+   *
+   * A file reached both a type-only way and a value way is false here: one
+   * value path is enough. A deferred edge (`isDeferred`) counts as a value
+   * path — a lazy import still runs.
+   */
+  reachedOnlyByTypes: boolean;
 }
 
 export interface Edge {
@@ -63,6 +88,56 @@ export interface Edge {
    * detectors leave these edges out.
    */
   isDeferred: boolean;
+  /**
+   * True when this statement asks the target for types alone — `import type
+   * { X } from`, `export type { X } from`, or every named binding on it
+   * marked `type` individually. Nothing of value crosses the edge.
+   *
+   * Syntax, not fate: under `verbatimModuleSyntax` an inline-marked
+   * `import { type A } from './a'` is emitted as `import {} from './a'` and
+   * still runs the module's side effects, while the clause-level form is
+   * dropped outright. What survives compilation is the toolchain's business,
+   * so nothing here claims it. Not the same axis as `isDeferred`, which is
+   * about when an import runs rather than what it asks for. Used to compute
+   * `FileNode.reachedOnlyByTypes`.
+   */
+  isTypeOnly: boolean;
+  /**
+   * True when every name this statement asks of the target is declared there
+   * as `interface` or `type` — the same conclusion as `isTypeOnly`, reached
+   * by looking at what the target declares rather than at how the import was
+   * written. So `import { SomeType } from './x'` counts even though it never
+   * says `type`.
+   *
+   * Follows re-export chains, so a name forwarded through a barrel resolves
+   * to wherever it is declared. False whenever the answer cannot be had:
+   * `names` is `'*'`, the target was never parsed, it uses `export =`, or a
+   * re-export cycle makes the name unresolvable.
+   *
+   * Independent of `isTypeOnly` rather than a superset of it — `import type
+   * { Foo }` is type-only however `Foo` is declared. Consumers asking "does
+   * anything of value cross this edge" want both.
+   */
+  requestsTypesOnly: boolean;
+  /**
+   * The subset of `exposedNames` this statement asks for as a type — each
+   * one declared on the target as `interface` or `type`, chased through
+   * re-export chains exactly as `requestsTypesOnly` does. Named on the
+   * outward side, since that is the side a viewer prints.
+   *
+   * This is what `requestsTypesOnly` has to throw away. A mixed `import {
+   * storeUser, FilterType }` is a value edge and must stay one — the target
+   * really is reached for a value — but `FilterType` is still a type, and a
+   * per-name label can say so where a per-edge flag cannot.
+   *
+   * A lower bound, never a partition: empty whenever the names can't be
+   * pinned down (`'*'` on either side), and blind to syntax, so `import {
+   * type Foo }` on a `class Foo` is absent. A name missing here is a name
+   * the graph couldn't call a type, not one it calls a value. Clause-level
+   * `import type` doesn't come through here at all — `isTypeOnly` already
+   * makes every name on the statement a type name.
+   */
+  typeOnlyNames: string[];
 }
 
 export interface ScanResult {
@@ -155,6 +230,17 @@ export interface TreeNode {
   importedAs: string[] | '*';
   /** Whether the edge from this occurrence's parent is lazy — every statement linking the pair is a dynamic `import()` or an in-function `require`. False for a root. Drawn dotted. */
   isDeferred: boolean;
+  /** Copied from the underlying `FileNode` — see its doc. A property of the file across the whole graph, not of this occurrence. Drawn as a dashed border. */
+  reachedOnlyByTypes: boolean;
+  /**
+   * The subset of `importedAs` that this parent ever imports ONLY as a
+   * type — never also as a value. Local to this occurrence's parent edge,
+   * unlike `reachedOnlyByTypes`: the same file can be a type here and a value
+   * under a different parent. `'*'` (namespace import, dynamic import,
+   * `require()`, or an entry point) always yields an empty list here, since
+   * there are no individual names to mark.
+   */
+  importedAsTypeOnly: string[];
   fanIn: number;
   children: TreeNode[];
 }
@@ -230,6 +316,8 @@ export interface GraphNode {
    * column, so two runs over an unchanged project draw the same picture.
    */
   order: number;
+  /** Copied from the underlying `FileNode` — see its doc. Drawn as a dashed border, or faded where the zoom draws nodes without one. */
+  reachedOnlyByTypes: boolean;
 }
 
 /**
@@ -247,6 +335,8 @@ export interface GraphEdge {
   isReexport: boolean;
   /** True only when EVERY collapsed statement is deferred — one module-scope import among them is enough to make the dependency load-bearing. */
   isDeferred: boolean;
+  /** True only when EVERY collapsed statement is type-only — one runtime statement among them makes the pair a real dependency. */
+  isTypeOnly: boolean;
   /** How many statements collapsed into this edge, deferred ones included. */
   statements: number;
   /**

@@ -12,16 +12,17 @@ function file(id: string): FileNode {
     externalImports: [],
     unresolvedImports: [],
     exports: null,
+    reachedOnlyByTypes: false,
   };
 }
 
 function edge(from: string, to: string, names: string[] | '*'): Edge {
-  return { from, to, names, exposedNames: names, isReexport: false, isDeferred: false };
+  return { from, to, names, exposedNames: names, isReexport: false, isDeferred: false, isTypeOnly: false, requestsTypesOnly: false, typeOnlyNames: [] };
 }
 
 /** An import that only runs when a function is called — `lazy(() => import('./x'))`. */
 function deferredEdge(from: string, to: string): Edge {
-  return { from, to, names: '*', exposedNames: '*', isReexport: false, isDeferred: true };
+  return { from, to, names: '*', exposedNames: '*', isReexport: false, isDeferred: true, isTypeOnly: false, requestsTypesOnly: false, typeOnlyNames: [] };
 }
 
 function makeScan(ids: string[], edges: Edge[]): ScanResult {

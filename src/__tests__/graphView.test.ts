@@ -27,6 +27,7 @@ function file(id: string): FileNode {
     externalImports: [],
     unresolvedImports: [],
     exports: null,
+    reachedOnlyByTypes: false,
   };
 }
 
@@ -43,6 +44,9 @@ function edge(
     exposedNames: opts.exposedNames ?? names,
     isReexport: opts.isReexport ?? false,
     isDeferred: false,
+    isTypeOnly: false,
+    requestsTypesOnly: false,
+    typeOnlyNames: [],
   };
 }
 

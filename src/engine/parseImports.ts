@@ -39,6 +39,14 @@ export interface ImportSpecifierInfo {
    * deferred — it runs during evaluation, with the same hazards.
    */
   isDeferred: boolean;
+  /**
+   * True when this statement asks the target for types alone — `import type
+   * { Props } from './x'`, or `import { type A, type B }` with every named
+   * binding marked. Syntax, not fate: what survives compilation is the
+   * toolchain's business, so nothing here claims it. A different axis from
+   * `isDeferred`, which is about when an import runs, not what it asks for.
+   */
+  isTypeOnly: boolean;
 }
 
 /**
@@ -47,26 +55,42 @@ export interface ImportSpecifierInfo {
  * module. `local` is what this file binds it to: `import LoginPage from
  * './x'` binds `default` as `LoginPage`. Equal without a rename. The viewer
  * labels nodes with `local`, the name a reader of THIS file recognizes.
+ *
+ * `isTypeOnly` holds when the clause says so, or when every named binding is
+ * marked `type` individually. A default binding makes it false either way —
+ * `import D, { type X }` still pulls a value.
  */
 function namesFromImportClause(
   clause: ts.ImportClause | undefined,
-): { source: string[] | '*'; local: string[] | '*' } {
-  if (!clause) return { source: '*', local: '*' };
+): { source: string[] | '*'; local: string[] | '*'; isTypeOnly: boolean } {
+  if (!clause) return { source: '*', local: '*', isTypeOnly: false };
+
+  const bindings = clause.namedBindings;
+  if (bindings && ts.isNamespaceImport(bindings)) {
+    return { source: '*', local: '*', isTypeOnly: clause.isTypeOnly };
+  }
+
   const source: string[] = [];
   const local: string[] = [];
   if (clause.name) {
     source.push('default');
     local.push(clause.name.text);
   }
-  const bindings = clause.namedBindings;
   if (bindings) {
-    if (ts.isNamespaceImport(bindings)) return { source: '*', local: '*' };
     for (const spec of bindings.elements) {
       source.push((spec.propertyName ?? spec.name).text);
       local.push(spec.name.text);
     }
   }
-  return source.length ? { source, local } : { source: '*', local: '*' };
+
+  const isTypeOnly =
+    clause.isTypeOnly ||
+    (!clause.name &&
+      !!bindings &&
+      bindings.elements.length > 0 &&
+      bindings.elements.every((el) => el.isTypeOnly));
+
+  return source.length ? { source, local, isTypeOnly } : { source: '*', local: '*', isTypeOnly };
 }
 
 /**
@@ -74,20 +98,25 @@ function namesFromImportClause(
  * falling back to `name`) — what's requested of it. `exposed` is what this
  * file's re-export makes available to ITS consumers (`name`). They differ
  * under `export { A as Alpha }`.
+ *
+ * `isTypeOnly` holds when the declaration says so, or when every named
+ * element is marked `type`. A plain `export * from` is not type-only.
  */
 function namesFromExportClause(
   node: ts.ExportDeclaration,
-): { source: string[] | '*'; exposed: string[] | '*' } {
+): { source: string[] | '*'; exposed: string[] | '*'; isTypeOnly: boolean } {
   const clause = node.exportClause;
-  if (!clause) return { source: '*', exposed: '*' }; // `export * from '...'`
-  if (ts.isNamespaceExport(clause)) return { source: '*', exposed: '*' }; // `export * as NS from '...'`
+  if (!clause) return { source: '*', exposed: '*', isTypeOnly: node.isTypeOnly }; // `export * from '...'`
+  if (ts.isNamespaceExport(clause)) return { source: '*', exposed: '*', isTypeOnly: node.isTypeOnly }; // `export * as NS from '...'`
   const source: string[] = [];
   const exposed: string[] = [];
   for (const spec of clause.elements) {
     source.push((spec.propertyName ?? spec.name).text);
     exposed.push(spec.name.text);
   }
-  return { source, exposed };
+  const isTypeOnly =
+    node.isTypeOnly || (clause.elements.length > 0 && clause.elements.every((el) => el.isTypeOnly));
+  return { source, exposed, isTypeOnly };
 }
 
 /** Flattens a binding name into the identifiers it introduces, so `export const { a, b } = x` counts as exporting both. */
@@ -117,12 +146,36 @@ function objectLiteralPropertyNames(literal: ts.ObjectLiteralExpression): string
  */
 function collectExports(sourceFile: ts.SourceFile): ExportFacts {
   const ownNames: string[] = [];
+  const typeDeclNames: string[] = [];
+  const localTypeNames = new Set<string>();
   // Top-level `const X = { ... }` literals, kept in case the default export
   // forwards one (`const Utils = {...}; export default Utils`).
   const objectLiterals: Record<string, string[]> = {};
   let defaultExpression: ts.Expression | null = null;
   let defaultLocalName: string | null = null;
   let hasExportEquals = false;
+
+  // A first pass, because `export { Local }` can be written above the
+  // declaration it names. A name declared both ways — `interface X` merged
+  // with `class X` or `const X` — is a value, so values subtract from types.
+  const localValueNames = new Set<string>();
+  for (const statement of sourceFile.statements) {
+    if (ts.isInterfaceDeclaration(statement) || ts.isTypeAliasDeclaration(statement)) {
+      localTypeNames.add(statement.name.text);
+      continue;
+    }
+    if (ts.isVariableStatement(statement)) {
+      const bound: string[] = [];
+      for (const declaration of statement.declarationList.declarations) {
+        collectBindingNames(declaration.name, bound);
+      }
+      for (const name of bound) localValueNames.add(name);
+      continue;
+    }
+    const named = statement as ts.Statement & { name?: ts.Node };
+    if (named.name && ts.isIdentifier(named.name)) localValueNames.add(named.name.text);
+  }
+  for (const name of localValueNames) localTypeNames.delete(name);
 
   for (const statement of sourceFile.statements) {
     if (ts.isVariableStatement(statement)) {
@@ -153,7 +206,13 @@ function collectExports(sourceFile: ts.SourceFile): ExportFacts {
     if (ts.isExportDeclaration(statement) && !statement.moduleSpecifier) {
       const clause = statement.exportClause;
       if (clause && ts.isNamedExports(clause)) {
-        for (const element of clause.elements) ownNames.push(element.name.text);
+        for (const element of clause.elements) {
+          ownNames.push(element.name.text);
+          const local = (element.propertyName ?? element.name).text;
+          if (statement.isTypeOnly || element.isTypeOnly || localTypeNames.has(local)) {
+            typeDeclNames.push(element.name.text);
+          }
+        }
       }
       continue;
     }
@@ -183,7 +242,10 @@ function collectExports(sourceFile: ts.SourceFile): ExportFacts {
 
     // function / class / interface / type alias / enum / namespace.
     const named = statement as ts.Statement & { name?: ts.Node };
-    if (named.name && ts.isIdentifier(named.name)) ownNames.push(named.name.text);
+    if (named.name && ts.isIdentifier(named.name)) {
+      ownNames.push(named.name.text);
+      if (localTypeNames.has(named.name.text)) typeDeclNames.push(named.name.text);
+    }
   }
 
   let defaultAggregateNames: string[] = [];
@@ -198,6 +260,7 @@ function collectExports(sourceFile: ts.SourceFile): ExportFacts {
 
   return {
     ownNames: [...new Set(ownNames)],
+    typeDeclNames: [...new Set(typeDeclNames)],
     defaultAggregateNames,
     defaultLocalName,
     hasExportEquals,
@@ -220,26 +283,28 @@ function collectImports(sourceFile: ts.SourceFile): ImportSpecifierInfo[] {
       node.moduleSpecifier &&
       ts.isStringLiteral(node.moduleSpecifier)
     ) {
-      const { source: importNames, local: importLocalNames } = namesFromImportClause(node.importClause);
+      const { source: importNames, local: importLocalNames, isTypeOnly } = namesFromImportClause(node.importClause);
       specifiers.push({
         moduleSpecifier: node.moduleSpecifier.text,
         names: importNames,
         exposedNames: importLocalNames,
         isReexport: false,
-        isDeferred: false
+        isDeferred: false,
+        isTypeOnly
       });
     } else if (
       ts.isExportDeclaration(node) &&
       node.moduleSpecifier &&
       ts.isStringLiteral(node.moduleSpecifier)
     ) {
-      const { source: sourceNames, exposed: exposedNames } = namesFromExportClause(node);
+      const { source: sourceNames, exposed: exposedNames, isTypeOnly } = namesFromExportClause(node);
       specifiers.push({
         moduleSpecifier: node.moduleSpecifier.text,
         names: sourceNames,
         exposedNames,
         isReexport: true,
-        isDeferred: false
+        isDeferred: false,
+        isTypeOnly
       });
     } else if (
       ts.isCallExpression(node) &&
@@ -247,7 +312,7 @@ function collectImports(sourceFile: ts.SourceFile): ImportSpecifierInfo[] {
       node.arguments[0] &&
       ts.isStringLiteral(node.arguments[0])
     ) {
-      specifiers.push({ moduleSpecifier: (node.arguments[0] as ts.StringLiteral).text, names: '*', exposedNames: '*', isReexport: false, isDeferred: inFunction });
+      specifiers.push({ moduleSpecifier: (node.arguments[0] as ts.StringLiteral).text, names: '*', exposedNames: '*', isReexport: false, isDeferred: inFunction, isTypeOnly: false });
     } else if (
       ts.isCallExpression(node) &&
       ts.isIdentifier(node.expression) &&
@@ -255,7 +320,7 @@ function collectImports(sourceFile: ts.SourceFile): ImportSpecifierInfo[] {
       node.arguments[0] &&
       ts.isStringLiteral(node.arguments[0])
     ) {
-      specifiers.push({ moduleSpecifier: (node.arguments[0] as ts.StringLiteral).text, names: '*', exposedNames: '*', isReexport: false, isDeferred: inFunction });
+      specifiers.push({ moduleSpecifier: (node.arguments[0] as ts.StringLiteral).text, names: '*', exposedNames: '*', isReexport: false, isDeferred: inFunction, isTypeOnly: false });
     }
     const childrenInFunction = inFunction || ts.isFunctionLike(node);
     ts.forEachChild(node, (child) => visit(child, childrenInFunction));

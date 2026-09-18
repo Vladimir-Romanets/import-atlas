@@ -45,6 +45,7 @@ export function buildGraph(scanResult: ScanResult): GraphData {
         exposedNames: raw.exposedNames === "*" ? "*" : [...raw.exposedNames],
         isReexport: raw.isReexport,
         isDeferred: raw.isDeferred,
+        isTypeOnly: raw.isTypeOnly,
         statements: 1,
         mergeableStatements: raw.isDeferred ? 0 : 1,
         // The one cycle needing no search to find — and no layering can
@@ -62,6 +63,7 @@ export function buildGraph(scanResult: ScanResult): GraphData {
     // one module-scope import among them makes the dependency load-bearing.
     existing.isReexport = existing.isReexport || raw.isReexport;
     existing.isDeferred = existing.isDeferred && raw.isDeferred;
+    existing.isTypeOnly = existing.isTypeOnly && raw.isTypeOnly;
     existing.statements += 1;
     // Counted as `computeDupeImports` counts, so the viewer's warning and
     // the Findings row it points at can't disagree.
@@ -196,6 +198,7 @@ export function buildGraph(scanResult: ScanResult): GraphData {
       depth: depth.get(id) ?? 0,
       isEntry: entrySet.has(id),
       order: order.get(id) ?? 0,
+      reachedOnlyByTypes: file.reachedOnlyByTypes,
     };
   });
 

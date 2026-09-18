@@ -1,5 +1,6 @@
 export { scan, layersOf } from './engine/scan';
 export type { ScanOptions } from './engine/scan';
+export { carriesTypesOnly, computeTypeOnlyReach } from './engine/typeOnlyReach';
 export { buildForest } from './engine/buildForest';
 export { buildGraph } from './engine/buildGraph';
 export { computeFindings, sortFindings } from './engine/findings';

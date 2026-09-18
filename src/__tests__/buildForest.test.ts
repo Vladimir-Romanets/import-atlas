@@ -12,6 +12,7 @@ function file(id: string): FileNode {
     externalImports: [],
     unresolvedImports: [],
     exports: null,
+    reachedOnlyByTypes: false,
   };
 }
 
@@ -24,6 +25,9 @@ function edge(
     isReexport?: boolean;
     exposedNames?: string[] | '*';
     isDeferred?: boolean;
+    isTypeOnly?: boolean;
+    requestsTypesOnly?: boolean;
+    typeOnlyNames?: string[];
   } = {},
 ): Edge {
   return {
@@ -33,6 +37,9 @@ function edge(
     exposedNames: opts.exposedNames ?? names,
     isReexport: opts.isReexport ?? false,
     isDeferred: opts.isDeferred ?? false,
+    isTypeOnly: opts.isTypeOnly ?? false,
+    requestsTypesOnly: opts.requestsTypesOnly ?? false,
+    typeOnlyNames: opts.typeOnlyNames ?? [],
   };
 }
 
@@ -207,6 +214,106 @@ describe('buildForest — importedAs (the viewer\'s primary node label)', () => 
 
     expect(sharedUnderBarrel1.importedAs).toEqual(['One']);
     expect(sharedUnderBarrel2.importedAs).toEqual(['Two']);
+  });
+});
+
+describe('buildForest — importedAsTypeOnly (per-occurrence, conservative)', () => {
+  it('marks the type-only name and leaves the value name alone for the common Button + type ButtonProps pair', () => {
+    const scan = makeScan(
+      ['app/entry.ts'],
+      ['app/entry.ts', 'ui/Button.ts'],
+      [
+        edge('app/entry.ts', 'ui/Button.ts', ['default'], { exposedNames: ['Button'] }),
+        edge('app/entry.ts', 'ui/Button.ts', ['Props'], { exposedNames: ['ButtonProps'], isTypeOnly: true }),
+      ],
+    );
+
+    const node = findChild(buildForest(scan), 'ui/Button.ts');
+    expect(node.importedAs).toEqual(expect.arrayContaining(['Button', 'ButtonProps']));
+    expect(node.importedAsTypeOnly).toEqual(['ButtonProps']);
+  });
+
+  it('counts a name pulled both ways as a value, not a type', () => {
+    // `import { X }` plus `import type { X }` from the same file — legal,
+    // if odd. It is real usage, so it must not be marked.
+    const scan = makeScan(
+      ['app/entry.ts'],
+      ['app/entry.ts', 'app/x.ts'],
+      [
+        edge('app/entry.ts', 'app/x.ts', ['X'], { exposedNames: ['X'] }),
+        edge('app/entry.ts', 'app/x.ts', ['X'], { exposedNames: ['X'], isTypeOnly: true }),
+      ],
+    );
+
+    const node = findChild(buildForest(scan), 'app/x.ts');
+    expect(node.importedAsTypeOnly).toEqual([]);
+  });
+
+  it('blanks the list entirely when a non-type-only statement pulls something unnameable', () => {
+    // A namespace import beside a type-only named one: the value side
+    // can't say which names it touches, so nothing here can be marked safe.
+    const scan = makeScan(
+      ['app/entry.ts'],
+      ['app/entry.ts', 'app/y.ts'],
+      [
+        edge('app/entry.ts', 'app/y.ts', '*'),
+        edge('app/entry.ts', 'app/y.ts', ['Y'], { exposedNames: ['Y'], isTypeOnly: true }),
+      ],
+    );
+
+    const node = findChild(buildForest(scan), 'app/y.ts');
+    expect(node.importedAsTypeOnly).toEqual([]);
+  });
+
+  it('skips a type-only wildcard statement rather than letting it blank the list', () => {
+    // `export type * from` contributes no nameable entries of its own, but
+    // it must not wipe out a sibling type-only statement that does name one.
+    const scan = makeScan(
+      ['app/entry.ts'],
+      ['app/entry.ts', 'app/z.ts'],
+      [
+        edge('app/entry.ts', 'app/z.ts', ['Y'], { exposedNames: ['Y'], isTypeOnly: true }),
+        edge('app/entry.ts', 'app/z.ts', '*', { isTypeOnly: true }),
+      ],
+    );
+
+    const node = findChild(buildForest(scan), 'app/z.ts');
+    expect(node.importedAsTypeOnly).toEqual(['Y']);
+  });
+
+  it('marks the type name inside one mixed statement, which is a value edge', () => {
+    // `import { storeUser, FilterType } from './user'` — the file really is
+    // reached for a value, so the node stays solid, but the panel can still
+    // name which of the two is a type.
+    const scan = makeScan(
+      ['app/entry.ts'],
+      ['app/entry.ts', 'stores/user.ts'],
+      [
+        edge('app/entry.ts', 'stores/user.ts', ['storeUser', 'FilterType'], {
+          typeOnlyNames: ['FilterType'],
+        }),
+      ],
+    );
+
+    const node = findChild(buildForest(scan), 'stores/user.ts');
+    expect(node.importedAsTypeOnly).toEqual(['FilterType']);
+    expect(node.reachedOnlyByTypes).toBe(false);
+  });
+
+  it('unmarks a name one statement calls a type when another pulls it as a value', () => {
+    const scan = makeScan(
+      ['app/entry.ts'],
+      ['app/entry.ts', 'stores/user.ts'],
+      [
+        edge('app/entry.ts', 'stores/user.ts', ['FilterType'], {
+          typeOnlyNames: ['FilterType'],
+        }),
+        edge('app/entry.ts', 'stores/user.ts', ['FilterType']),
+      ],
+    );
+
+    const node = findChild(buildForest(scan), 'stores/user.ts');
+    expect(node.importedAsTypeOnly).toEqual([]);
   });
 });
 

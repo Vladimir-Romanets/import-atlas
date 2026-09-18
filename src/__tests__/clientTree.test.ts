@@ -16,6 +16,8 @@ function node(renderId: string, fileId: string, extra: Partial<RenderNode> = {})
     ref: null,
     importedAs: '*',
     isDeferred: false,
+    reachedOnlyByTypes: false,
+    importedAsTypeOnly: [],
     fanIn: 1,
     children: [],
     depth: 0,

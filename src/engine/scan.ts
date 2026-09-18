@@ -3,6 +3,7 @@ import * as path from 'path';
 import { loadTsConfig } from './configLoader';
 import { extractModuleFacts, type ImportSpecifierInfo } from './parseImports';
 import { resolveSpecifier } from './resolveModule';
+import { annotateTypeRequests, computeTypeOnlyReach } from './typeOnlyReach';
 import type { Edge, ExportFacts, FileNode, ScanResult } from '../types';
 
 export interface ScanOptions {
@@ -131,7 +132,11 @@ export function scan(entryFiles: string[], options: ScanOptions): ScanResult {
         names: spec.names,
         exposedNames: spec.exposedNames,
         isReexport: spec.isReexport,
-        isDeferred: spec.isDeferred
+        isDeferred: spec.isDeferred,
+        isTypeOnly: spec.isTypeOnly,
+        // Both filled in by annotateTypeRequests once every file has been read.
+        requestsTypesOnly: false,
+        typeOnlyNames: []
       });
 
       if (!seen.has(resolved)) {
@@ -148,7 +153,10 @@ export function scan(entryFiles: string[], options: ScanOptions): ScanResult {
       layer: layerOf(id),
       externalImports,
       unresolvedImports,
-      exports
+      exports,
+      // Stamped below, once the full edge set is known — mirrors how fanIn
+      // is derived from the finished walk rather than accumulated during it.
+      reachedOnlyByTypes: false
     };
   }
 
@@ -178,5 +186,14 @@ export function scan(entryFiles: string[], options: ScanOptions): ScanResult {
     coverageGaps.push(`${unresolved} import(s) could not be resolved to a file on disk`);
   }
 
-  return { root, entries, nodes, edges: walkedEdges, fanIn, warnings, coverageGaps };
+  const result = { root, entries, nodes, edges: walkedEdges, fanIn, warnings, coverageGaps };
+
+  // Post-passes over the finished edge set, same as fanIn above — the walk
+  // itself tracks neither, and resolving a name against what its target
+  // declares needs every file read first anyway.
+  annotateTypeRequests(result);
+  const reachedOnlyByTypes = computeTypeOnlyReach(result);
+  for (const id of reachedOnlyByTypes) nodes[id].reachedOnlyByTypes = true;
+
+  return result;
 }

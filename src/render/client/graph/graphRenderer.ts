@@ -465,7 +465,10 @@ export function createGraphRenderer({
     const importers =
       node.fanIn === 1 ? "1 importer" : `${node.fanIn} importers`;
     const imports = node.fanOut === 1 ? "1 import" : `${node.fanOut} imports`;
-    return `${node.label} — ${node.relPath}\n${importers}, ${imports}${node.note ? `\nimports: ${node.note}` : ""}`;
+    // The dash and the fade are the only places this shows on screen, and the
+    // fade is all there is once zoomed out — so it belongs in the text too.
+    const typeOnly = node.reachedOnlyByTypes ? "\nreached only as a type" : "";
+    return `${node.label} — ${node.relPath}\n${importers}, ${imports}${typeOnly}${node.note ? `\nimports: ${node.note}` : ""}`;
   };
 
   const renderNode = (
@@ -480,6 +483,7 @@ export function createGraphRenderer({
     const dimmed =
       highlight.selectedId !== null && !highlight.nodes.has(node.id);
     if (dimmed) classes.push("node-dim");
+    if (node.reachedOnlyByTypes) classes.push("type-only");
     g.setAttribute("class", classes.join(" "));
     g.setAttribute("transform", `translate(${node.x},${node.y - NODE_H / 2})`);
     g.dataset.id = node.id;
