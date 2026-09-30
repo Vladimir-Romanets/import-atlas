@@ -77,3 +77,57 @@ describe('scan — coverage gaps', () => {
     expect(result.nodes['src/components/button/IconButton.ts']).toBeUndefined();
   });
 });
+
+describe('scan — ESM TypeScript specifiers', () => {
+  it('resolves a `.js`/`.mjs`/`.cjs` specifier to the TypeScript source it compiles from', () => {
+    // moduleResolution node16/nodenext requires the compiled extension in
+    // relative imports, so `./a.js` names `a.ts` — as TypeScript reads it.
+    project({
+      'tsconfig.json': '{"compilerOptions":{"module":"NodeNext","moduleResolution":"NodeNext"}}',
+      'src/entry.ts':
+        "import { a } from './lib/a.js';\n" +
+        "import { b } from './lib/b.mjs';\n" +
+        "import { c } from './lib/c.cjs';\n" +
+        "import { V } from './lib/view.js';\n" +
+        "import d from './lib/index.js';\n" +
+        'export const all = [a, b, c, V, d];\n',
+      'src/lib/a.ts': 'export const a = 1;\n',
+      'src/lib/b.mts': 'export const b = 1;\n',
+      'src/lib/c.cts': 'export const c = 1;\n',
+      'src/lib/view.tsx': 'export const V = 1;\n',
+      'src/lib/index.ts': 'export default 1;\n',
+    });
+    const result = scan(['src/entry.ts'], { root });
+
+    expect(result.nodes['src/entry.ts'].unresolvedImports).toEqual([]);
+    expect(result.edges.map((e) => e.to).sort()).toEqual([
+      'src/lib/a.ts',
+      'src/lib/b.mts',
+      'src/lib/c.cts',
+      'src/lib/index.ts',
+      'src/lib/view.tsx',
+    ]);
+    expect(result.coverageGaps).toEqual([]);
+  });
+
+  it('resolves a `.js` specifier behind a tsconfig `paths` alias', () => {
+    project({
+      'tsconfig.json': '{"compilerOptions":{"baseUrl":".","paths":{"@/*":["src/*"]}}}',
+      'src/entry.ts': "import { a } from '@/lib/a.js';\nexport const x = a;\n",
+      'src/lib/a.ts': 'export const a = 1;\n',
+    });
+    const result = scan(['src/entry.ts'], { root });
+
+    expect(result.edges.map((e) => e.to)).toEqual(['src/lib/a.ts']);
+  });
+
+  it('still resolves a `.js` specifier to a plain JavaScript file', () => {
+    project({
+      'src/entry.js': "import { a } from './a.js';\nexport const x = a;\n",
+      'src/a.js': 'export const a = 1;\n',
+    });
+    const result = scan(['src/entry.js'], { root });
+
+    expect(result.edges.map((e) => e.to)).toEqual(['src/a.js']);
+  });
+});
