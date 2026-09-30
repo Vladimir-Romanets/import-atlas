@@ -1,3 +1,10 @@
+## [1.4.1](https://github.com/Vladimir-Romanets/import-atlas/compare/v1.4.0...v1.4.1) (2026-09-30)
+
+
+### Bug Fixes
+
+* resolve ESM .js/.mjs/.cjs specifiers to their TypeScript source ([#37](https://github.com/Vladimir-Romanets/import-atlas/issues/37)) ([d153558](https://github.com/Vladimir-Romanets/import-atlas/commit/d1535580a892a69980966ee23827b6fca3871eb3))
+
 # [1.4.0](https://github.com/Vladimir-Romanets/import-atlas/compare/v1.3.0...v1.4.0) (2026-09-18)
 
 
