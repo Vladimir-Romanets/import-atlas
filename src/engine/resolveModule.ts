@@ -13,7 +13,26 @@ function statSafe(p: string): fs.Stats | null {
   }
 }
 
+// ESM TypeScript (`moduleResolution` node16/nodenext/bundler) writes the
+// extension the file will have once compiled: `./util.js` for `util.ts`.
+// TypeScript reads such a specifier as its source file first, and so do we.
+const JS_TO_TS_EXTENSIONS: Record<string, string[]> = {
+  '.js': ['.ts', '.tsx'],
+  '.jsx': ['.tsx'],
+  '.mjs': ['.mts'],
+  '.cjs': ['.cts']
+};
+
 function tryResolveFile(candidate: string): string | null {
+  const jsExt = path.extname(candidate);
+  const tsExts = JS_TO_TS_EXTENSIONS[jsExt];
+  if (tsExts) {
+    const stem = candidate.slice(0, -jsExt.length);
+    for (const ext of tsExts) {
+      if (statSafe(stem + ext)?.isFile()) return stem + ext;
+    }
+  }
+
   const direct = statSafe(candidate);
   if (direct?.isFile()) return candidate;
 
