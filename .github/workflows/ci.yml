@@ -30,6 +30,7 @@ jobs:
           cache: pnpm
 
       - run: pnpm install --frozen-lockfile
+      - run: pnpm audit --audit-level=high
       - run: pnpm test
       # `build`, not `typecheck` — it's what the release itself runs, so a PR
       # is checked against exactly the step that will have to succeed later.
